@@ -1,0 +1,282 @@
+import { useState, useEffect, useRef } from 'react';
+import { useEduOSStore } from '../../store/store';
+import { askStudentHTTP } from '../../lib/api';
+import { Send, GraduationCap, Compass, Info, RefreshCw } from 'lucide-react';
+
+interface ChatMessage {
+  id: string;
+  sender: 'student' | 'tutor';
+  text: string;
+  level?: string;
+  suggestedActions?: string[];
+  isPracticeQuestion?: boolean;
+}
+
+export const StudentAssistant: React.FC = () => {
+  const { user, selectedTopic, mockMode } = useEduOSStore();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [inputText, setInputText] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [currentLevel, setCurrentLevel] = useState<'technical' | 'simplified' | 'beginner'>('technical');
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Seed initial prompt
+  useEffect(() => {
+    if (messages.length === 0) {
+      setMessages([
+        {
+          id: 'welcome',
+          sender: 'tutor',
+          text: `Hi Alex! Welcome to your private, judgment-free study assistant. We are currently looking at "${selectedTopic?.name || 'CNN'}". Feel free to ask me anything — no question is too basic!`,
+          level: 'technical',
+          suggestedActions: ["Explain CNN standard concept", "Give me a simple example", "Practice question"]
+        }
+      ]);
+      setCurrentLevel('technical');
+      setConversationId(null);
+    }
+  }, [selectedTopic]);
+
+  // Mock State-Machine for Adaptive Learning
+  const handleSimulatedTutor = (message: string) => {
+    setIsLoading(true);
+    const msgLower = message.toLowerCase();
+
+    let responseText = "";
+    let nextLevel = currentLevel;
+    let suggestedActions: string[] = [];
+    let isQuestion = false;
+
+    // State machine logic based on intent matching
+    if (msgLower.includes('simpler') || msgLower.includes("don't understand") || msgLower.includes("confused") || msgLower.includes("hard")) {
+      if (currentLevel === 'technical') {
+        nextLevel = 'simplified';
+        responseText = "No problem! Let's break it down simpler. In a standard CNN, we use complex math matrices. Simply put: think of a CNN as a scanning grid. Instead of analyzing the whole image at once (which takes too much memory), it moves a tiny window (kernel) across the picture line by line to detect basic features like outlines and borders. Does this grid explanation make more sense?";
+        suggestedActions = ["Explain even simpler", "Give me an example", "Let's try a question"];
+      } else {
+        nextLevel = 'beginner';
+        responseText = "Got it, let's strip away all the computer science jargon. Think of a CNN like a puzzle solver. Imagine you're sorting pictures. You don't guess the puzzle by staring at all pieces scattered. You look for corners (Level 1 features), then lock pieces together to recognize a face or shape (Level 2), and finally see the whole picture. That's all a CNN does — building small details into big recognition. How's that?";
+        suggestedActions = ["Give me a concrete example", "Test me with a question", "Go back to Technical level"];
+      }
+    } else if (msgLower.includes('example') || msgLower.includes('analogy')) {
+      responseText = `Here is a real-world example: Think of face recognition on your phone.
+1. The CNN first scans small patches of your face, detecting simple lines and dark gradients (low-level).
+2. It then groups those lines to recognize shapes like two circles and a curved arc (mid-level: eyes and mouth).
+3. Finally, it combines those features to declare 'This is Alex' (high-level classification).`;
+      suggestedActions = ["Let's try a practice question", "Explain the math standard", "Still confused"];
+    } else if (msgLower.includes('question') || msgLower.includes('test') || msgLower.includes('practice')) {
+      isQuestion = true;
+      responseText = "Here is a quick concept check:\n\nIf you apply a 3x3 filter to a 10x10 image with a stride of 1 (shifting the filter by 1 pixel at a time) and no padding, what will the width of the output feature map be?\n\n(Write your guess or click 'Reveal Answer' to check!)";
+      suggestedActions = ["Answer: 8x8", "Answer: 10x10", "Reveal Answer"];
+    } else if (msgLower.includes('8x8') || msgLower.includes('correct') || msgLower.includes('reveal')) {
+      responseText = "Perfect! Yes, the answer is 8x8. The formula is (W - F)/S + 1. So (10 - 3)/1 + 1 = 8. Excellent job analyzing the spatial dimension reduction! Would you like to try another or return to the main theory?";
+      suggestedActions = ["Give me another question", "Explain MaxPooling next", "Reset difficulty to technical"];
+    } else if (msgLower.includes('reset') || msgLower.includes('technical') || msgLower.includes('standard')) {
+      nextLevel = 'technical';
+      responseText = "Okay! Resetting to our standard technical level. A Convolutional Neural Network uses parameterized sliding tensor kernels to compute discrete cross-correlation feature maps, applying non-linear activation functions (ReLU) and dimensionality-reducing pooling layers. What specific component (convolutions, pooling, linear layers) should we dive into?";
+      suggestedActions = ["Explain MaxPooling math", "Show me a simple roadmap", "Give me a simple example"];
+    } else {
+      // Default technical response
+      nextLevel = 'technical';
+      responseText = "A Convolutional Neural Network (CNN) is a deep neural network class that uses convolutional layers to preserve the spatial hierarchy of pixels. Rather than connecting every pixel to every neuron (fully connected), it slide kernels across the grid to extract local features, making it highly parameter-efficient for vision tasks.";
+      suggestedActions = ["I don't understand this", "Give me an example", "Give me a practice question"];
+    }
+
+    setTimeout(() => {
+      setIsLoading(false);
+      setCurrentLevel(nextLevel);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}`,
+          sender: 'tutor',
+          text: responseText,
+          level: nextLevel,
+          suggestedActions,
+          isPracticeQuestion: isQuestion
+        }
+      ]);
+    }, 1200);
+  };
+
+  const handleSend = async (textToSend: string) => {
+    if (!textToSend.trim()) return;
+
+    // Student message
+    setMessages((prev) => [
+      ...prev,
+      { id: `msg-${Date.now()}`, sender: 'student', text: textToSend }
+    ]);
+    setInputText('');
+
+    if (mockMode) {
+      handleSimulatedTutor(textToSend);
+    } else if (user) {
+      setIsLoading(true);
+      try {
+        const response = await askStudentHTTP(
+          user.token,
+          selectedTopic?.id || "topic-cnn-001",
+          conversationId,
+          textToSend
+        );
+        setIsLoading(false);
+        if (response.conversation_id) {
+          setConversationId(response.conversation_id);
+        }
+        if (response.current_level) {
+          setCurrentLevel(response.current_level);
+        }
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            sender: 'tutor',
+            text: response.content,
+            level: response.current_level || 'technical',
+            suggestedActions: response.suggested_next_actions || []
+          }
+        ]);
+      } catch (err) {
+        setIsLoading(false);
+        console.error("HTTP error calling student assistant:", err);
+        handleSimulatedTutor(textToSend);
+      }
+    }
+  };
+
+  const currentTutorMessage = messages[messages.length - 1]?.sender === 'tutor' 
+    ? messages[messages.length - 1] 
+    : messages[messages.length - 2];
+
+  return (
+    <div className="flex flex-col h-full bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+      {/* Header */}
+      <div className="bg-slate-900/85 backdrop-blur border-b border-slate-850 p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-teal-600/20 flex items-center justify-center text-teal-400 font-bold border border-teal-500/20">
+            <GraduationCap className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-sm text-slate-100 flex items-center gap-1.5">
+              Private Tutor AI
+              <span className="bg-slate-800 text-slate-400 text-[8px] font-mono font-medium px-1.5 py-0.5 rounded-full border border-slate-700">
+                Private Chat
+              </span>
+            </h3>
+            <p className="text-[10px] text-slate-400">
+              Personalized learning on <span className="text-teal-400 font-medium">{selectedTopic?.name || "CNN"}</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Adaptive level state */}
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 bg-slate-950/80 px-2.5 py-1.5 rounded-lg border border-slate-800 text-[10px]">
+            <Compass className="w-3.5 h-3.5 text-teal-400" />
+            <span className="text-slate-400 font-medium">Complexity:</span>
+            <span className="text-teal-300 font-bold uppercase font-mono tracking-wider ml-1">
+              {currentLevel}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Chat scroll workspace */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-950 to-slate-900/30">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex flex-col ${msg.sender === 'student' ? 'items-end' : 'items-start'} gap-1.5 animate-slide-up`}
+          >
+            {/* Sender tag */}
+            <span className="text-[9px] text-slate-500 font-medium px-1">
+              {msg.sender === 'student' ? 'You' : 'Personal Tutor AI'}
+            </span>
+
+            {/* Bubble */}
+            <div
+              className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                msg.sender === 'student'
+                  ? 'bg-teal-600 border border-teal-500 text-white rounded-tr-none'
+                  : 'bg-slate-900/80 border border-slate-800 text-slate-200 rounded-tl-none backdrop-blur-sm'
+              }`}
+            >
+              {msg.text.split('\n').map((line, i) => (
+                <p key={i} className={line ? 'mb-2 last:mb-0' : 'h-3'} >{line}</p>
+              ))}
+
+              {/* level stamp for AI responses */}
+              {msg.sender === 'tutor' && msg.level && (
+                <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[9px] text-slate-500 font-mono">
+                  <span>Level: {msg.level}</span>
+                  <span className="flex items-center gap-1">
+                    <Info className="w-3 h-3 text-teal-500/80" /> Institutional Grounded
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="flex items-center gap-2 p-3 bg-slate-900/60 border border-slate-800/60 rounded-xl text-teal-400 text-xs w-36 justify-center">
+            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            Analyzing & adapting...
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Suggested next replies */}
+      {currentTutorMessage && currentTutorMessage.suggestedActions && currentTutorMessage.suggestedActions.length > 0 && (
+        <div className="px-4 py-2.5 bg-slate-950/60 border-t border-slate-850/80">
+          <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider block mb-1.5">
+            Suggested replies (low friction):
+          </span>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
+            {currentTutorMessage.suggestedActions.map((action, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleSend(action)}
+                disabled={isLoading}
+                className="flex-shrink-0 bg-slate-900 hover:bg-teal-950/20 hover:border-teal-500/40 border border-slate-800 text-slate-300 hover:text-teal-300 px-3 py-1.5 rounded-lg text-[10px] font-medium transition-all active:scale-95 disabled:opacity-50"
+              >
+                {action}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Input container */}
+      <div className="p-3.5 bg-slate-950 border-t border-slate-850 flex items-center gap-2">
+        <input
+          type="text"
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSend(inputText)}
+          placeholder="Ask a question privately... (e.g. explain like I'm a beginner)"
+          disabled={isLoading}
+          className="flex-1 bg-slate-900 border border-slate-800/80 rounded-xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-teal-500/60 focus:ring-1 focus:ring-teal-500/40 transition-all disabled:opacity-50"
+        />
+        <button
+          onClick={() => handleSend(inputText)}
+          disabled={isLoading || !inputText.trim()}
+          className="p-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium shadow-md shadow-teal-950/40 active:scale-95 transition-all disabled:opacity-50"
+        >
+          <Send className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};

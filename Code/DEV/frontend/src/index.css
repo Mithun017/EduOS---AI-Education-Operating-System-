@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-50: #f5f7ff;
+  --color-brand-100: #ebf0ff;
+  --color-brand-200: #d6dfff;
+  --color-brand-300: #b3c3ff;
+  --color-brand-400: #859dff;
+  --color-brand-500: #5c74ff;
+  --color-brand-600: #3b4eff;
+  --color-brand-700: #2d3be6;
+  --color-brand-800: #252fb8;
+  --color-brand-900: #232b94;
+
+  --color-slate-custom-50: #f8fafc;
+  --color-slate-custom-100: #f1f5f9;
+  --color-slate-custom-200: #e2e8f0;
+  --color-slate-custom-300: #cbd5e1;
+  --color-slate-custom-400: #94a3b8;
+  --color-slate-custom-500: #64748b;
+  --color-slate-custom-600: #475569;
+  --color-slate-custom-700: #334155;
+  --color-slate-custom-800: #1e293b;
+  --color-slate-custom-900: #0f172a;
+  --color-slate-custom-950: #020617;
+
+  --animate-fade-in: fadeIn 0.3s ease-out forwards;
+  --animate-slide-up: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-pulse-subtle: pulseSubtle 2s infinite ease-in-out;
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slideUp {
+    from { transform: translateY(8px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes pulseSubtle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+}
+
+@utility glass-panel {
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.4);
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(2, 6, 23, 0.2);
+}
+
+@utility glass-panel-interactive {
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(51, 65, 85, 0.4);
+  border-radius: 1rem;
+  box-shadow: 0 20px 25px -5px rgba(2, 6, 23, 0.2);
+  transition: all 0.3s ease-out;
+
+  &:hover {
+    border-color: rgba(92, 116, 255, 0.3);
+    box-shadow: 0 20px 25px -5px rgba(92, 116, 255, 0.05);
+  }
+}
+
+@utility custom-gradient-text {
+  background-clip: text;
+  color: transparent;
+  background-image: linear-gradient(to right, var(--color-brand-300), var(--color-indigo-300), var(--color-teal-300));
+}
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased font-sans min-h-screen overflow-x-hidden;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(30, 58, 138, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(13, 148, 136, 0.1) 0px, transparent 50%);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-700 rounded hover:bg-slate-600 transition-colors;
+  }
+}
+
+/* Roadmap styles */
+.roadmap-node {
+  @apply transition-all duration-300 cursor-pointer;
+}
+.roadmap-node:hover {
+  filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.6));
+}
+
+/* Custom styling for streaming tokens */
+.typing-cursor::after {
+  content: '▋';
+  @apply text-brand-400 ml-0.5 animate-pulse;
+}
