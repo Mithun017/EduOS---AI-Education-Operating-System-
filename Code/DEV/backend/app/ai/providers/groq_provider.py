@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class GroqProvider:
     name: str = "groq"
-    priority: int = 3
+    priority: int = 2
 
     def __init__(self):
         self.api_key = settings.GROQ_API_KEY

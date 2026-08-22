@@ -3,8 +3,8 @@ import uuid
 import logging
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException, status, UploadFile
-import boto3
-from botocore.exceptions import BotoCoreError
+import cloudinary
+import cloudinary.uploader
 
 from app.core.config import settings
 from app.db.models import KnowledgeChunk, Resource
@@ -52,16 +52,17 @@ def validate_upload_file(file: UploadFile, content: bytes):
             detail=f"Unsupported file type '{file.content_type}'. Allowed types: PDF, PPT, PPTX, TXT."
         )
 
-def get_s3_client():
-    if not settings.S3_ACCESS_KEY_ID or settings.S3_ACCESS_KEY_ID == "your_r2_access_key_id":
-        return None
-    return boto3.client(
-        "s3",
-        endpoint_url=settings.S3_ENDPOINT_URL or None,
-        aws_access_key_id=settings.S3_ACCESS_KEY_ID,
-        aws_secret_access_key=settings.S3_SECRET_ACCESS_KEY,
-        region_name=settings.S3_REGION
-    )
+def configure_cloudinary():
+    if settings.CLOUDINARY_CLOUD_NAME:
+        cloudinary.config(
+            cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+            api_key=settings.CLOUDINARY_API_KEY,
+            api_secret=settings.CLOUDINARY_API_SECRET,
+            secure=True
+        )
+
+# Initialize configuration
+configure_cloudinary()
 
 def build_tenant_s3_key(institution_id: str, resource_id: str, filename: str) -> str:
     """Enforce tenant isolation at object storage layer: {institution_id}/{resource_id}/{filename}"""
@@ -76,24 +77,23 @@ async def upload_resource_file(
     content = await file.read()
     validate_upload_file(file, content)
 
-    s3_key = build_tenant_s3_key(institution_id, resource_id, file.filename or "resource.bin")
-    s3_client = get_s3_client()
+    storage_key = build_tenant_s3_key(institution_id, resource_id, file.filename or "resource.bin")
 
-    if s3_client:
+    if settings.CLOUDINARY_CLOUD_NAME:
         try:
-            s3_client.put_object(
-                Bucket=settings.S3_BUCKET_NAME,
-                Key=s3_key,
-                Body=content,
-                ContentType=file.content_type
+            # Upload raw file (handles PDFs, slides, text etc)
+            cloudinary.uploader.upload(
+                content,
+                public_id=storage_key,
+                resource_type="raw"
             )
-            logger.info(f"Successfully uploaded resource file to S3: {s3_key}")
-        except BotoCoreError as e:
-            logger.error(f"S3 upload failed: {e}")
+            logger.info(f"Successfully uploaded resource file to Cloudinary: {storage_key}")
+        except Exception as e:
+            logger.error(f"Cloudinary upload failed: {e}")
     else:
-        logger.info(f"S3 not configured. Virtual key generated: {s3_key}")
+        logger.info(f"Cloudinary not configured. Virtual key generated: {storage_key}")
 
-    return s3_key
+    return storage_key
 
 def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
     """Splits plain text into overlapping chunks."""

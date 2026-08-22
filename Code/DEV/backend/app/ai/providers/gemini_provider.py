@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class GeminiProvider:
     name: str = "google_gemini"
-    priority: int = 2
+    priority: int = 3
 
     def __init__(self):
         self.api_key = settings.GOOGLE_GEMINI_API_KEY

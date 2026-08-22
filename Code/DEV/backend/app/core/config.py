@@ -15,12 +15,10 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
 
-    # Storage (S3 / Cloudflare R2)
-    S3_ENDPOINT_URL: str = ""
-    S3_ACCESS_KEY_ID: str = ""
-    S3_SECRET_ACCESS_KEY: str = ""
-    S3_BUCKET_NAME: str = "eduos-prototype"
-    S3_REGION: str = "auto"
+    # Storage (Cloudinary)
+    CLOUDINARY_CLOUD_NAME: str = ""
+    CLOUDINARY_API_KEY: str = ""
+    CLOUDINARY_API_SECRET: str = ""
 
     # Security / JWT
     JWT_SECRET_KEY: str = "replace_with_a_strong_random_secret_minimum_32_chars"
