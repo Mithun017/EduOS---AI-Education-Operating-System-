@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useEduOSStore } from '../../store/store';
 import { askStudentHTTP } from '../../lib/api';
 import { Send, GraduationCap, Compass, Info, RefreshCw } from 'lucide-react';
+import { DrawingCanvas } from '../canvas/DrawingCanvas';
 
 interface ChatMessage {
   id: string;
@@ -13,7 +14,7 @@ interface ChatMessage {
 }
 
 export const StudentAssistant: React.FC = () => {
-  const { user, selectedTopic, mockMode } = useEduOSStore();
+  const { user, selectedTopic, mockMode, canvasModeActive, setCanvasModeActive } = useEduOSStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -159,40 +160,60 @@ export const StudentAssistant: React.FC = () => {
     : messages[messages.length - 2];
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+    <div className="flex flex-col h-full bg-[var(--glass-bg)] rounded-2xl border border-[var(--border-subtle)] overflow-hidden shadow-2xl transition-all duration-300">
       {/* Header */}
-      <div className="bg-slate-900/85 backdrop-blur border-b border-slate-850 p-4 flex items-center justify-between">
+      <div className="bg-[var(--glass-bg)]/40 border-b border-[var(--border-subtle)] p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-teal-600/20 flex items-center justify-center text-teal-400 font-bold border border-teal-500/20">
+          <div className="w-9 h-9 rounded-xl bg-[var(--accent-primary-soft)] flex items-center justify-center text-[var(--accent-primary)] font-extrabold border border-[var(--border-subtle)]">
             <GraduationCap className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-semibold text-sm text-slate-100 flex items-center gap-1.5">
+            <h3 className="font-semibold text-sm text-[var(--text-primary)] flex items-center gap-1.5">
               Private Tutor AI
-              <span className="bg-slate-800 text-slate-400 text-[8px] font-mono font-medium px-1.5 py-0.5 rounded-full border border-slate-700">
+              <span className="bg-slate-800/10 text-[var(--text-secondary)] text-[8px] font-mono font-medium px-1.5 py-0.5 rounded-full border border-[var(--border-subtle)]">
                 Private Chat
               </span>
             </h3>
-            <p className="text-[10px] text-slate-400">
-              Personalized learning on <span className="text-teal-400 font-medium">{selectedTopic?.name || "CNN"}</span>
+            <p className="text-[10px] text-[var(--text-secondary)]">
+              Personalized learning on <span className="text-[var(--accent-primary)] font-medium">{selectedTopic?.name || "CNN"}</span>
             </p>
           </div>
         </div>
 
         {/* Adaptive level state */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 bg-slate-950/80 px-2.5 py-1.5 rounded-lg border border-slate-800 text-[10px]">
-            <Compass className="w-3.5 h-3.5 text-teal-400" />
-            <span className="text-slate-400 font-medium">Complexity:</span>
-            <span className="text-teal-300 font-bold uppercase font-mono tracking-wider ml-1">
-              {currentLevel}
-            </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setCanvasModeActive(!canvasModeActive)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+              canvasModeActive
+                ? 'bg-[var(--accent-primary)] text-slate-950 border-[var(--accent-primary)] font-semibold shadow-lg'
+                : 'bg-[var(--glass-bg)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)]'
+            }`}
+          >
+            {canvasModeActive ? "Hide Drawing Board" : "Show Drawing Board"}
+          </button>
+
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-[var(--glass-bg)] px-2.5 py-1.5 rounded-xl border border-[var(--border-subtle)] text-[10px]">
+              <Compass className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+              <span className="text-[var(--text-secondary)] font-medium">Complexity:</span>
+              <span className="text-[var(--accent-primary)] font-bold uppercase font-mono tracking-wider ml-1">
+                {currentLevel}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Chat scroll workspace */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-950 to-slate-900/30">
+      {/* Messages Scroll / Drawing Canvas Workspace */}
+      {canvasModeActive ? (
+        <div className="flex-1 min-h-0">
+          <DrawingCanvas conversationId={conversationId} />
+        </div>
+      ) : (
+        <>
+          {/* Chat scroll workspace */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-950/20 to-slate-900/10">
         {messages.map((msg) => (
           <div
             key={msg.id}
@@ -277,6 +298,8 @@ export const StudentAssistant: React.FC = () => {
           <Send className="w-4 h-4" />
         </button>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 };

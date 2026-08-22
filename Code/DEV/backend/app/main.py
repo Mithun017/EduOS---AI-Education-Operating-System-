@@ -7,6 +7,7 @@ from app.features.teacher_assistant.router import router as teacher_router
 from app.features.student_assistant.router import router as student_router
 from app.features.auth.router import router as auth_router
 from app.features.academic.router import router as academic_router
+from app.features.canvas.router import router as canvas_router
 
 app = FastAPI(
     title="EduOS Prototype API",
@@ -31,6 +32,7 @@ app.include_router(auth_router)
 app.include_router(academic_router)
 app.include_router(teacher_router)
 app.include_router(student_router)
+app.include_router(canvas_router)
 
 @app.get("/")
 async def root():

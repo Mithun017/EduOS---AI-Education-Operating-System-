@@ -22,7 +22,7 @@ echo [2/5] Checking Node.js installation...
 node -v >nul 2>&1
 if %errorlevel% neq 0 (
     echo ❌ Node.js is not installed or not added to PATH.
-    echo Please install Node.js (LTS version recommended) and try again.
+    echo Please install Node.js and try again.
     pause
     exit /b
 )

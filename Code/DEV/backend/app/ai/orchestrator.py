@@ -6,7 +6,7 @@ import redis.asyncio as aioredis
 from fastapi import HTTPException, status
 
 from app.core.config import settings
-from app.ai.providers.base import AIProvider, AIRequest, AIChunk
+from app.ai.providers.base import AIProvider, AIRequest, AIChunk, AIMessage
 from app.ai.providers.nim_provider import NIMProvider
 from app.ai.providers.gemini_provider import GeminiProvider
 from app.ai.providers.groq_provider import GroqProvider

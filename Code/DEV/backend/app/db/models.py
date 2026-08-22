@@ -186,3 +186,31 @@ class StudentUnderstandingState(Base):
     topic_id: Mapped[str] = mapped_column(String, ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, index=True)
     current_level: Mapped[str] = mapped_column(String(50), nullable=False, default="technical") # technical, simplified, beginner, analogy, example
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+class CanvasSession(Base):
+    __tablename__ = "canvas_sessions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    institution_id: Mapped[str] = mapped_column(String, ForeignKey("institutions.id", ondelete="CASCADE"), nullable=False, index=True)
+    conversation_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("conversations.id", ondelete="SET NULL"), nullable=True, index=True)
+    topic_id: Mapped[str] = mapped_column(String, ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, index=True)
+    owner_user_id: Mapped[str] = mapped_column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    objects: Mapped[List["CanvasObject"]] = relationship("CanvasObject", back_populates="session", cascade="all, delete-orphan")
+
+class CanvasObject(Base):
+    __tablename__ = "canvas_objects"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    canvas_session_id: Mapped[str] = mapped_column(String, ForeignKey("canvas_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
+    type: Mapped[str] = mapped_column(String(50), nullable=False) # stroke, shape, formula, text
+    geometry_json: Mapped[str] = mapped_column(Text, nullable=False) # raw coordinates or shape properties
+    style_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # color, thickness, etc.
+    recognized_as: Mapped[Optional[str]] = mapped_column(String(50), nullable=True) # circle, rectangle, arrow, line, formula
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    session: Mapped["CanvasSession"] = relationship("CanvasSession", back_populates="objects")
+

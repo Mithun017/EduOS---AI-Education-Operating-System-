@@ -12,6 +12,8 @@
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",
     "lucide-react": "^1.33.0",
+    "mathjs": "^15.2.0",
+    "perfect-freehand": "^1.2.3",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "zustand": "^5.0.15"

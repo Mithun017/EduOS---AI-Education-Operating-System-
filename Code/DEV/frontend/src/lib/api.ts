@@ -96,3 +96,98 @@ export const askStudentHTTP = async (
   }
   return response.json();
 };
+
+// Canvas & Drawing System Interfaces
+export interface CanvasObject {
+  id: string;
+  type: 'stroke' | 'shape' | 'formula' | 'text';
+  geometry_json: string;
+  style_json?: string | null;
+  recognized_as?: string | null;
+  order_index: number;
+}
+
+export interface CanvasSession {
+  id: string;
+  topic_id: string;
+  conversation_id: string | null;
+  owner_user_id: string;
+  objects: CanvasObject[];
+}
+
+export const fetchCanvasSession = async (
+  token: string,
+  topicId: string,
+  conversationId: string | null = null
+): Promise<CanvasSession> => {
+  let url = `${API_BASE_URL}/api/v1/canvas/session?topic_id=${topicId}`;
+  if (conversationId) {
+    url += `&conversation_id=${conversationId}`;
+  }
+  const response = await fetch(url, {
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch canvas session");
+  }
+  return response.json();
+};
+
+export const saveCanvasObjects = async (
+  token: string,
+  sessionId: string,
+  objects: CanvasObject[]
+): Promise<{ status: string; saved_count: number }> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/canvas/${sessionId}/objects`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ objects })
+  });
+  if (!response.ok) {
+    throw new Error("Failed to save canvas objects");
+  }
+  return response.json();
+};
+
+export const recognizeFormula = async (
+  token: string,
+  sessionId: string,
+  strokesJson?: string,
+  imageBase64?: string
+): Promise<{ formula_text: string }> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/canvas/${sessionId}/recognize-formula`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ strokes_json: strokesJson, image_base64: imageBase64 })
+  });
+  if (!response.ok) {
+    throw new Error("Failed to recognize formula");
+  }
+  return response.json();
+};
+
+export const plotFormula = async (
+  token: string,
+  sessionId: string,
+  formulaText: string
+): Promise<{ chart_type: string; labels: string[]; series: any[] }> => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/canvas/${sessionId}/plot`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ formula_text: formulaText })
+  });
+  if (!response.ok) {
+    throw new Error("Failed to plot formula");
+  }
+  return response.json();
+};
+

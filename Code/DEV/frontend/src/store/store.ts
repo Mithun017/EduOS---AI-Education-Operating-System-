@@ -16,6 +16,8 @@ interface EduOSStore {
   selectedTopic: AcademicTopic | null;
   viewMode: 'teacher' | 'student';
   mockMode: boolean; // Toggle simulation mock mode if API keys are missing
+  theme: 'light' | 'dark';
+  canvasModeActive: boolean;
 
   setUser: (user: UserSession | null) => void;
   setSubjects: (subjects: AcademicSubject[]) => void;
@@ -23,7 +25,20 @@ interface EduOSStore {
   setSelectedTopic: (topic: AcademicTopic | null) => void;
   setViewMode: (mode: 'teacher' | 'student') => void;
   toggleMockMode: () => void;
+  setTheme: (theme: 'light' | 'dark') => void;
+  toggleTheme: () => void;
+  setCanvasModeActive: (active: boolean) => void;
 }
+
+const getInitialTheme = (): 'light' | 'dark' => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') return saved;
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    return media.matches ? 'dark' : 'light';
+  }
+  return 'dark';
+};
 
 export const useEduOSStore = create<EduOSStore>((set) => ({
   user: null,
@@ -32,6 +47,8 @@ export const useEduOSStore = create<EduOSStore>((set) => ({
   selectedTopic: null,
   viewMode: 'teacher',
   mockMode: true, // Default to true so that it works out of the box with zero API key config
+  theme: getInitialTheme(),
+  canvasModeActive: false,
 
   setUser: (user) => set({ user }),
   setSubjects: (subjects) => {
@@ -61,4 +78,16 @@ export const useEduOSStore = create<EduOSStore>((set) => ({
   setSelectedTopic: (topic) => set({ selectedTopic: topic }),
   setViewMode: (viewMode) => set({ viewMode }),
   toggleMockMode: () => set((state) => ({ mockMode: !state.mockMode })),
+  setTheme: (theme) => {
+    localStorage.setItem('theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    set({ theme });
+  },
+  toggleTheme: () => set((state) => {
+    const newTheme = state.theme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('theme', newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    return { theme: newTheme };
+  }),
+  setCanvasModeActive: (canvasModeActive) => set({ canvasModeActive }),
 }));

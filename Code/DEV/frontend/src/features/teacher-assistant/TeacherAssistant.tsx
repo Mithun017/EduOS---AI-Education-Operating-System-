@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useEduOSStore } from '../../store/store';
 import { EduOSWebSocket } from '../../lib/ws';
 import { Sparkles, Send, RefreshCw } from 'lucide-react';
+import { DrawingCanvas } from '../canvas/DrawingCanvas';
 import {
   ExplanationCard,
   RoadmapDiagram,
@@ -22,7 +23,7 @@ interface Message {
 }
 
 export const TeacherAssistant: React.FC = () => {
-  const { user, selectedTopic, mockMode } = useEduOSStore();
+  const { user, selectedTopic, mockMode, canvasModeActive, setCanvasModeActive } = useEduOSStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -239,39 +240,56 @@ export const TeacherAssistant: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/40 rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+    <div className="flex flex-col h-full bg-[var(--glass-bg)] rounded-2xl border border-[var(--border-subtle)] overflow-hidden shadow-2xl transition-all duration-300">
       {/* Header */}
-      <div className="bg-slate-900 border-b border-slate-850/80 p-4 flex items-center justify-between">
+      <div className="bg-[var(--glass-bg)]/40 border-b border-[var(--border-subtle)] p-4 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-indigo-600/25 flex items-center justify-center text-indigo-400 font-bold border border-indigo-500/20">
+          <div className="w-8 h-8 rounded-lg bg-[var(--accent-primary-soft)] flex items-center justify-center text-[var(--accent-primary)] font-extrabold border border-[var(--border-subtle)]">
             T
           </div>
           <div>
-            <h3 className="font-semibold text-sm text-slate-100">Live Teaching Assistant</h3>
-            <p className="text-[10px] text-slate-400">Context: <span className="text-indigo-400 font-medium">{selectedTopic?.name || "No Topic Selected"}</span></p>
+            <h3 className="font-semibold text-sm text-[var(--text-primary)]">Live Teaching Assistant</h3>
+            <p className="text-[10px] text-[var(--text-secondary)]">Context: <span className="text-[var(--accent-primary)] font-medium">{selectedTopic?.name || "No Topic Selected"}</span></p>
           </div>
         </div>
 
         {/* Configuration settings */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-md border border-slate-800">
-            <span className="text-[9px] text-slate-400 font-mono">Mode:</span>
+          <button
+            onClick={() => setCanvasModeActive(!canvasModeActive)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+              canvasModeActive
+                ? 'bg-[var(--accent-primary)] text-slate-950 border-[var(--accent-primary)] font-semibold shadow-lg'
+                : 'bg-[var(--glass-bg)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)]'
+            }`}
+          >
+            {canvasModeActive ? "Hide Drawing Board" : "Show Drawing Board"}
+          </button>
+
+          <div className="flex items-center gap-1 bg-[var(--glass-bg)] px-2.5 py-1.5 rounded-xl border border-[var(--border-subtle)]">
+            <span className="text-[9px] text-[var(--text-secondary)] font-mono">Mode:</span>
             <select
               value={responseMode}
               onChange={(e: any) => setResponseMode(e.target.value)}
-              className="bg-transparent text-[10px] text-indigo-400 focus:outline-none cursor-pointer"
+              className="bg-transparent text-[10px] text-[var(--accent-primary)] focus:outline-none cursor-pointer"
             >
-              <option value="hybrid" className="bg-slate-950">Hybrid</option>
-              <option value="institution_grounded" className="bg-slate-950">Grounded</option>
-              <option value="general" className="bg-slate-950">General</option>
+              <option value="hybrid" className="bg-slate-950 text-slate-100">Hybrid</option>
+              <option value="institution_grounded" className="bg-slate-950 text-slate-100">Grounded</option>
+              <option value="general" className="bg-slate-950 text-slate-100">General</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Messages Scroll Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && (
+      {/* Messages Scroll / Drawing Canvas Workspace */}
+      {canvasModeActive ? (
+        <div className="flex-1 min-h-0">
+          <DrawingCanvas conversationId={null} />
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
             <Sparkles className="w-8 h-8 text-indigo-400/80 animate-bounce" />
             <h4 className="font-medium text-slate-200 text-sm">Ask EduOS Live Assistant</h4>
@@ -346,6 +364,8 @@ export const TeacherAssistant: React.FC = () => {
           <Send className="w-4 h-4" />
         </button>
       </div>
+        </>
+      )}
     </div>
   );
 };
