@@ -37,7 +37,7 @@ export const StudentAssistant: React.FC = () => {
         {
           id: 'welcome',
           sender: 'tutor',
-          text: `Hi Alex! Welcome to your private, judgment-free study assistant. We are currently looking at "${selectedTopic?.name || 'CNN'}". Feel free to ask me anything — no question is too basic!`,
+          text: `Hi ${user?.fullName || 'there'}! Welcome to your private, judgment-free study assistant. We are currently looking at "${selectedTopic?.name || 'this topic'}". Feel free to ask me anything — no question is too basic!`,
           level: 'technical',
           suggestedActions: ["Explain CNN standard concept", "Give me a simple example", "Practice question"]
         }

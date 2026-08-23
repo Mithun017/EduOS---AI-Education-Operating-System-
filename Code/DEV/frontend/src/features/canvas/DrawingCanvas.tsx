@@ -21,7 +21,7 @@ interface DrawingCanvasProps {
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = null }) => {
   const { user, selectedTopic, mockMode } = useEduOSStore();
   const canvasRef = useRef<SVGSVGElement>(null);
-  
+
   // Canvas session and objects
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [objects, setObjects] = useState<CanvasObject[]>([]);
@@ -33,7 +33,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [snapToGrid, setSnapToGrid] = useState(false);
-  
+
   // Selection/Lasso state
   const [lassoStart, setLassoStart] = useState<Point | null>(null);
   const [lassoEnd, setLassoEnd] = useState<Point | null>(null);
@@ -239,7 +239,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     e.preventDefault();
     canvasRef.current?.setPointerCapture(e.pointerId);
-    
+
     const coord = getCoordinatesFromEvent(e);
 
     if (activeTool === 'lasso') {
@@ -257,7 +257,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!canvasRef.current) return;
-    
+
     const coord = getCoordinatesFromEvent(e);
 
     if (activeTool === 'lasso' && lassoStart) {
@@ -291,7 +291,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     canvasRef.current?.releasePointerCapture(e.pointerId);
-    
+
     if (activeTool === 'lasso') {
       setLassoStart(null);
       setLassoEnd(null);
@@ -402,7 +402,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
     try {
       const expr = finalFormula.split("=")[-1] || finalFormula;
-      
+
       // Calculate series dataset using mathjs
       const series: any[] = [];
       const labels: string[] = [];

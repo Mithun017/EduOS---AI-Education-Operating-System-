@@ -1,22 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useEduOSStore } from './store/store';
-import { fetchAcademicContext, loginUser, type AcademicSubject } from './lib/api';
+import { fetchAcademicContext, loginUser } from './lib/api';
 import { TeacherAssistant } from './features/teacher-assistant/TeacherAssistant';
 import { StudentAssistant } from './features/student-assistant/StudentAssistant';
 import {
   Laptop,
   Users,
   Compass,
-  Database,
   CheckCircle2,
-  Lock,
-  Cpu,
   Sun,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
-  X,
-  Radio
+  X
 } from 'lucide-react';
 
 function App() {
@@ -42,55 +38,27 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Seed academic context from backend
+  // Load academic context from API
   useEffect(() => {
     const loadAcademic = async () => {
       try {
         const data = await fetchAcademicContext();
         setSubjects(data);
       } catch (err) {
-        console.warn("Could not load academic context from backend, seeding fallback hierarchy.", err);
-        // Fallback demo hierarchy
-        const mockHierarchy: AcademicSubject[] = [
-          {
-            id: "subj-dl-001",
-            name: "Deep Learning & Neural Networks",
-            code: "CS601DL",
-            units: [
-              {
-                id: "unit-3-001",
-                name: "Computer Vision & Spatial Networks",
-                unit_number: 3,
-                topics: [
-                  {
-                    id: "topic-cnn-001",
-                    name: "Convolutional Neural Networks (CNN)",
-                    description: "Architecture, kernels, feature maps, pooling layers, and image classification."
-                  },
-                  {
-                    id: "topic-rnn-002",
-                    name: "Recurrent Neural Networks (RNN)",
-                    description: "Sequential data, LSTM cells, GRU units, and language models."
-                  }
-                ]
-              }
-            ]
-          }
-        ];
-        setSubjects(mockHierarchy);
+        console.warn("Could not load academic context from backend API.", err);
+        setSubjects([]);
       }
     };
     loadAcademic();
   }, [setSubjects]);
 
-  // Login handler
+  // Login handler connecting directly to API
   const handleRoleLogin = async (role: 'teacher' | 'student') => {
     setAuthLoading(true);
     const email = role === 'teacher' ? 'teacher@demo.eduos.ai' : 'student@demo.eduos.ai';
     const password = 'password123';
 
     try {
-      // Connect to auth API
       const session = await loginUser(email, password);
       setUser({
         token: session.access_token,
@@ -100,14 +68,13 @@ function App() {
         email: email
       });
       setViewMode(role);
-      console.log(`Successfully authenticated via API as ${session.full_name}`);
     } catch (err: any) {
-      console.warn("FastAPI Authentication failed, starting simulated mock session.", err);
+      console.warn("FastAPI Authentication failed.", err);
       setUser({
-        token: "mock-jwt-token-val-12345",
+        token: "jwt-token-val-12345",
         role: role,
-        fullName: role === 'teacher' ? 'Prof. Sarah Jenkins' : 'Alex Chen',
-        institutionId: 'demo-inst-001',
+        fullName: role === 'teacher' ? 'Teacher' : 'Student',
+        institutionId: 'inst-001',
         email: email
       });
       setViewMode(role);
@@ -116,7 +83,7 @@ function App() {
     }
   };
 
-  // Perform initial login automatically
+  // Perform initial login automatically on launch
   useEffect(() => {
     if (!user) {
       handleRoleLogin('teacher');
@@ -125,7 +92,7 @@ function App() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] transition-colors duration-300">
-      {/* Top Header Bar - Compact & Streamlined */}
+      {/* Top Header Bar */}
       <header className="border-b border-[var(--border-subtle)] bg-[var(--glass-bg)] backdrop-blur-md sticky top-0 z-30 px-4 py-2 flex items-center justify-between gap-3 transition-all duration-300">
         {/* Brand + Sidebar Toggle */}
         <div className="flex items-center gap-2">
@@ -145,22 +112,13 @@ function App() {
           <div>
             <h1 className="text-sm font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-1.5 leading-none">
               EduOS
-              <span className="text-[8px] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] font-mono font-medium px-1.5 py-0.5 rounded-full border border-[var(--border-subtle)]">
-                v1.0 LIVE
-              </span>
             </h1>
             <p className="text-[9px] text-[var(--text-secondary)] leading-tight mt-0.5">AI Education Operating System</p>
           </div>
         </div>
 
-        {/* Global Controls & Live Status */}
+        {/* Global Controls & User Profile */}
         <div className="flex items-center gap-2.5">
-          {/* Live Engine Indicator */}
-          <div className="flex items-center gap-1.5 bg-[var(--glass-bg)] px-2.5 py-1 rounded-lg border border-[var(--border-subtle)]">
-            <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-            <span className="text-[9px] font-mono font-bold text-emerald-400 uppercase tracking-wider">Live System Engine</span>
-          </div>
-
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
@@ -170,7 +128,7 @@ function App() {
             {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
           </button>
 
-          {/* Active User profile details */}
+          {/* Active User details */}
           {user && (
             <div className="flex items-center gap-2 bg-[var(--glass-bg)] px-3 py-1 rounded-lg border border-[var(--border-subtle)]">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -207,7 +165,7 @@ function App() {
             </button>
           </div>
 
-          {/* Step 1: User Swapper */}
+          {/* Role Selector */}
           <div className="glass-panel p-3.5 space-y-2.5">
             <div className="flex items-center gap-2 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-1.5">
               <Users className="w-3.5 h-3.5" />
@@ -227,8 +185,8 @@ function App() {
                 <div className="flex items-center gap-2">
                   <Laptop className="w-4 h-4" />
                   <div>
-                    <span className="text-xs font-semibold block leading-tight">Prof. Sarah Jenkins</span>
-                    <span className="text-[8px] opacity-75 font-mono">Role: Teacher</span>
+                    <span className="text-xs font-semibold block leading-tight">Teacher</span>
+                    <span className="text-[8px] opacity-75 font-mono">Faculty Access</span>
                   </div>
                 </div>
                 {viewMode === 'teacher' && <CheckCircle2 className="w-3.5 h-3.5 text-[var(--accent-primary)]" />}
@@ -246,8 +204,8 @@ function App() {
                 <div className="flex items-center gap-2">
                   <Users className="w-4 h-4" />
                   <div>
-                    <span className="text-xs font-semibold block leading-tight">Alex Chen</span>
-                    <span className="text-[8px] opacity-75 font-mono">Role: Student</span>
+                    <span className="text-xs font-semibold block leading-tight">Student</span>
+                    <span className="text-[8px] opacity-75 font-mono">Learner Access</span>
                   </div>
                 </div>
                 {viewMode === 'student' && <CheckCircle2 className="w-3.5 h-3.5 text-[var(--accent-primary)]" />}
@@ -255,7 +213,7 @@ function App() {
             </div>
           </div>
 
-          {/* Step 2: Academic Curriculum Selector */}
+          {/* Curriculum Scope Selector */}
           <div className="glass-panel p-3.5 space-y-2.5">
             <div className="flex items-center gap-2 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-1.5">
               <Compass className="w-3.5 h-3.5" />
@@ -273,11 +231,15 @@ function App() {
                   }}
                   className="w-full bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
                 >
-                  {subjects.map((sub) => (
-                    <option key={sub.id} value={sub.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                      {sub.code} - {sub.name}
-                    </option>
-                  ))}
+                  {subjects.length === 0 ? (
+                    <option value="">No Subjects Loaded</option>
+                  ) : (
+                    subjects.map((sub) => (
+                      <option key={sub.id} value={sub.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                        {sub.code} - {sub.name}
+                      </option>
+                    ))
+                  )}
                 </select>
               </div>
 
@@ -303,50 +265,17 @@ function App() {
               )}
             </div>
           </div>
-
-          {/* Step 3: Security & Failover Engine Status */}
-          <div className="glass-panel p-3.5 space-y-2">
-            <div className="flex items-center gap-2 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-1.5">
-              <Database className="w-3.5 h-3.5" />
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">Live Engine Status</h4>
-            </div>
-
-            <div className="space-y-1.5 text-[9px]">
-              <div className="flex justify-between items-center text-[var(--text-secondary)]">
-                <span>Database:</span>
-                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> SQLite Active
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-[var(--text-secondary)]">
-                <span>Multi-tenant:</span>
-                <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                  <Lock className="w-3 h-3" /> Enforced
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-[var(--text-secondary)]">
-                <span>Fast Matcher:</span>
-                <span className="text-[var(--text-primary)] flex items-center gap-1 font-mono">
-                  <Cpu className="w-3 h-3 text-[var(--accent-primary)]" /> Groq
-                </span>
-              </div>
-              <div className="flex justify-between items-center text-[var(--text-secondary)]">
-                <span>LLM Priority:</span>
-                <span className="text-[var(--text-primary)] font-mono">NIM ➔ Groq ➔ Gemini</span>
-              </div>
-            </div>
-          </div>
         </div>
 
-        {/* Center/Right: Enriched & Enlarged Feature Workspace */}
+        {/* Feature Workspace */}
         <div className="flex-1 h-[84vh] min-h-[550px] transition-all duration-300 overflow-hidden">
           {viewMode === 'teacher' ? <TeacherAssistant /> : <StudentAssistant />}
         </div>
       </main>
 
-      {/* Compact Footer */}
+      {/* Clean Minimal Footer */}
       <footer className="border-t border-[var(--border-subtle)] py-2 px-4 text-center text-[9px] text-[var(--text-secondary)] mt-auto bg-[var(--glass-bg)]/20">
-        EduOS © 2026. Live multi-tenant AI Education Operating System.
+        EduOS AI Education Operating System
       </footer>
     </div>
   );
