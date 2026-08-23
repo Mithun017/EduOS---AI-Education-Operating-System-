@@ -198,7 +198,6 @@ function App() {
             <h1 className="text-sm font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-1.5 leading-none">
               EduOS
             </h1>
-            <p className="text-[9px] text-[var(--text-secondary)] leading-tight mt-0.5">AI Education Operating System</p>
           </div>
         </div>
 
@@ -554,15 +553,10 @@ function App() {
         </div>
 
         {/* Feature Workspace */}
-        <div className="flex-1 h-[84vh] min-h-[550px] transition-all duration-300 overflow-hidden">
+        <div className="flex-1 h-[88vh] min-h-[550px] transition-all duration-300 overflow-hidden">
           {viewMode === 'teacher' ? <TeacherAssistant /> : <StudentAssistant />}
         </div>
       </main>
-
-      {/* Clean Minimal Footer */}
-      <footer className="border-t border-[var(--border-subtle)] py-2 px-4 text-center text-[9px] text-[var(--text-secondary)] mt-auto bg-[var(--glass-bg)]/20">
-        EduOS AI Education Operating System
-      </footer>
     </div>
   );
 }
