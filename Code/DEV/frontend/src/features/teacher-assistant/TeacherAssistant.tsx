@@ -263,7 +263,7 @@ export const TeacherAssistant: React.FC = () => {
                 : 'bg-[var(--glass-bg)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)]'
             }`}
           >
-            {canvasModeActive ? "Hide Drawing Board" : "Show Drawing Board"}
+            {canvasModeActive ? "Assistant Chat View" : "Drawing Board View"}
           </button>
 
           <div className="flex items-center gap-1 bg-[var(--glass-bg)] px-2.5 py-1.5 rounded-xl border border-[var(--border-subtle)]">

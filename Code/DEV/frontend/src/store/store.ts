@@ -109,7 +109,7 @@ export const useEduOSStore = create<EduOSStore>((set) => ({
   viewMode: 'teacher',
   mockMode: false,
   theme: getInitialTheme(),
-  canvasModeActive: false,
+  canvasModeActive: true,
 
   setUser: (user) => set({ user }),
   setSubjects: (subjects) => {

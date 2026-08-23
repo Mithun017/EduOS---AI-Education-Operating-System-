@@ -4,6 +4,7 @@ import * as math from 'mathjs';
 import { useEduOSStore } from '../../store/store';
 import { ShapeToolbar } from './ShapeToolbar';
 import { FormulaConfirmDialog } from './FormulaConfirmDialog';
+import { SecondBrainGraphModal } from './SecondBrainGraphModal';
 import { fetchCanvasSession, saveCanvasObjects, recognizeFormula } from '../../lib/api';
 import type { CanvasObject } from '../../lib/api';
 import { ChartCard } from '../teacher-assistant/ResponseRenderers';
@@ -43,6 +44,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [recognizedFormulaText, setRecognizedFormulaText] = useState('');
   const [isRecognizing, setIsRecognizing] = useState(false);
+  const [isGraphicalViewOpen, setIsGraphicalViewOpen] = useState(false);
 
   // Auto-save debounce timer
   const saveTimerRef = useRef<any>(null);
@@ -471,6 +473,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           onClear={handleClear}
           onRecognize={handleRecognizeFormula}
           hasSelection={selectedObjectIds.size > 0}
+          onOpenGraphicalView={() => setIsGraphicalViewOpen(true)}
         />
       </div>
 
@@ -663,6 +666,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         onClose={() => setIsConfirmOpen(false)}
         recognizedText={recognizedFormulaText}
         onConfirm={handleConfirmFormula}
+      />
+
+      {/* Second Brain Knowledge Graph Modal */}
+      <SecondBrainGraphModal
+        isOpen={isGraphicalViewOpen}
+        onClose={() => setIsGraphicalViewOpen(false)}
       />
     </div>
   );
