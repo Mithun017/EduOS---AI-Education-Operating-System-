@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useEduOSStore } from '../../store/store';
 import { askStudentHTTP } from '../../lib/api';
-import { Send, GraduationCap, Compass, Info, RefreshCw } from 'lucide-react';
+import { Send, GraduationCap, Compass, Info, RefreshCw, Network } from 'lucide-react';
 import { DrawingCanvas } from '../canvas/DrawingCanvas';
+import { SecondBrainGraphModal } from '../canvas/SecondBrainGraphModal';
 
 interface ChatMessage {
   id: string;
@@ -20,6 +21,7 @@ export const StudentAssistant: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentLevel, setCurrentLevel] = useState<'technical' | 'simplified' | 'beginner'>('technical');
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isGraphicalViewOpen, setIsGraphicalViewOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -181,7 +183,16 @@ export const StudentAssistant: React.FC = () => {
         </div>
 
         {/* Adaptive level state */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsGraphicalViewOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--accent-primary)] hover:border-[var(--accent-primary)] transition-all cursor-pointer shadow-sm hover:scale-105"
+            title="Open Second Brain Knowledge Graph (Nodes & Edges)"
+          >
+            <Network className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+            <span>Graphical View</span>
+          </button>
+
           <button
             onClick={() => setCanvasModeActive(!canvasModeActive)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
@@ -299,7 +310,12 @@ export const StudentAssistant: React.FC = () => {
         </button>
       </div>
     </>
-  )}
-</div>
+      )}
+      {/* Second Brain Knowledge Graph Modal */}
+      <SecondBrainGraphModal
+        isOpen={isGraphicalViewOpen}
+        onClose={() => setIsGraphicalViewOpen(false)}
+      />
+    </div>
   );
 };

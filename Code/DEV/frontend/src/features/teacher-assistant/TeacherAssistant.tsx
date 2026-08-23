@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useEduOSStore } from '../../store/store';
 import { EduOSWebSocket } from '../../lib/ws';
-import { Sparkles, Send, RefreshCw } from 'lucide-react';
+import { Sparkles, Send, RefreshCw, Network } from 'lucide-react';
 import { DrawingCanvas } from '../canvas/DrawingCanvas';
+import { SecondBrainGraphModal } from '../canvas/SecondBrainGraphModal';
 import {
   ExplanationCard,
   RoadmapDiagram,
@@ -29,6 +30,7 @@ export const TeacherAssistant: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [wsClient, setWsClient] = useState<EduOSWebSocket | null>(null);
   const [responseMode, setResponseMode] = useState<'hybrid' | 'institution_grounded' | 'general'>('hybrid');
+  const [isGraphicalViewOpen, setIsGraphicalViewOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Quick Action Chips
@@ -254,7 +256,16 @@ export const TeacherAssistant: React.FC = () => {
         </div>
 
         {/* Configuration settings */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsGraphicalViewOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--accent-primary)] hover:border-[var(--accent-primary)] transition-all cursor-pointer shadow-sm hover:scale-105"
+            title="Open Second Brain Knowledge Graph (Nodes & Edges)"
+          >
+            <Network className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+            <span>Graphical View</span>
+          </button>
+
           <button
             onClick={() => setCanvasModeActive(!canvasModeActive)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
@@ -366,6 +377,12 @@ export const TeacherAssistant: React.FC = () => {
       </div>
         </>
       )}
+
+      {/* Second Brain Knowledge Graph Modal */}
+      <SecondBrainGraphModal
+        isOpen={isGraphicalViewOpen}
+        onClose={() => setIsGraphicalViewOpen(false)}
+      />
     </div>
   );
 };
