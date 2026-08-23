@@ -1,8 +1,10 @@
 @echo off
-title EduOS API & Key Health Checker
+setlocal
+cd /d "%~dp0"
+title EduOS API Key Health Checker
 cls
 echo ============================================================
-echo           EduOS AI & Cloud Storage Key Diagnostic
+echo           EduOS AI ^& Cloud Storage Key Diagnostic
 echo ============================================================
 echo.
 
