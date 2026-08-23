@@ -307,7 +307,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           type: recognized_as ? 'shape' : 'stroke',
           geometry_json: JSON.stringify(geometry),
           style_json: JSON.stringify({
-            color: document.documentElement.getAttribute('data-theme') === 'light' ? '#102542' : '#52DBFF',
+            color: document.documentElement.getAttribute('data-theme') === 'light' ? '#102542' : '#D2F535',
             width: 3
           }),
           recognized_as: recognized_as,
