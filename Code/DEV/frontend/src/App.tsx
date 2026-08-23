@@ -130,9 +130,11 @@ function App() {
       <header className="border-b border-[var(--border-subtle)] bg-[var(--glass-bg)] backdrop-blur-md sticky top-0 z-30 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-4 transition-all duration-300">
         {/* Brand */}
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-500 flex items-center justify-center text-white font-extrabold shadow-md shadow-brand-950/20">
-            eE
-          </div>
+          <img
+            src="/favicon.svg"
+            alt="EduOS Logo"
+            className="w-10 h-10 rounded-xl shadow-md hover:scale-105 transition-transform"
+          />
           <div>
             <h1 className="text-base font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-1.5">
               EduOS
