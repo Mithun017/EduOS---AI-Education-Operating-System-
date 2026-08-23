@@ -15,7 +15,7 @@ interface ChatMessage {
 }
 
 export const StudentAssistant: React.FC = () => {
-  const { user, selectedTopic, mockMode, canvasModeActive, setCanvasModeActive } = useEduOSStore();
+  const { user, selectedTopic, canvasModeActive, setCanvasModeActive } = useEduOSStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -49,67 +49,7 @@ export const StudentAssistant: React.FC = () => {
     }
   }, [selectedTopic]);
 
-  // Mock State-Machine for Adaptive Learning
-  const handleSimulatedTutor = (message: string) => {
-    setIsLoading(true);
-    const msgLower = message.toLowerCase();
 
-    let responseText = "";
-    let nextLevel = currentLevel;
-    let suggestedActions: string[] = [];
-    let isQuestion = false;
-
-    // State machine logic based on intent matching
-    if (msgLower.includes('simpler') || msgLower.includes("don't understand") || msgLower.includes("confused") || msgLower.includes("hard")) {
-      if (currentLevel === 'technical') {
-        nextLevel = 'simplified';
-        responseText = "No problem! Let's break it down simpler. In a standard CNN, we use complex math matrices. Simply put: think of a CNN as a scanning grid. Instead of analyzing the whole image at once (which takes too much memory), it moves a tiny window (kernel) across the picture line by line to detect basic features like outlines and borders. Does this grid explanation make more sense?";
-        suggestedActions = ["Explain even simpler", "Give me an example", "Let's try a question"];
-      } else {
-        nextLevel = 'beginner';
-        responseText = "Got it, let's strip away all the computer science jargon. Think of a CNN like a puzzle solver. Imagine you're sorting pictures. You don't guess the puzzle by staring at all pieces scattered. You look for corners (Level 1 features), then lock pieces together to recognize a face or shape (Level 2), and finally see the whole picture. That's all a CNN does — building small details into big recognition. How's that?";
-        suggestedActions = ["Give me a concrete example", "Test me with a question", "Go back to Technical level"];
-      }
-    } else if (msgLower.includes('example') || msgLower.includes('analogy')) {
-      responseText = `Here is a real-world example: Think of face recognition on your phone.
-1. The CNN first scans small patches of your face, detecting simple lines and dark gradients (low-level).
-2. It then groups those lines to recognize shapes like two circles and a curved arc (mid-level: eyes and mouth).
-3. Finally, it combines those features to declare 'This is Alex' (high-level classification).`;
-      suggestedActions = ["Let's try a practice question", "Explain the math standard", "Still confused"];
-    } else if (msgLower.includes('question') || msgLower.includes('test') || msgLower.includes('practice')) {
-      isQuestion = true;
-      responseText = "Here is a quick concept check:\n\nIf you apply a 3x3 filter to a 10x10 image with a stride of 1 (shifting the filter by 1 pixel at a time) and no padding, what will the width of the output feature map be?\n\n(Write your guess or click 'Reveal Answer' to check!)";
-      suggestedActions = ["Answer: 8x8", "Answer: 10x10", "Reveal Answer"];
-    } else if (msgLower.includes('8x8') || msgLower.includes('correct') || msgLower.includes('reveal')) {
-      responseText = "Perfect! Yes, the answer is 8x8. The formula is (W - F)/S + 1. So (10 - 3)/1 + 1 = 8. Excellent job analyzing the spatial dimension reduction! Would you like to try another or return to the main theory?";
-      suggestedActions = ["Give me another question", "Explain MaxPooling next", "Reset difficulty to technical"];
-    } else if (msgLower.includes('reset') || msgLower.includes('technical') || msgLower.includes('standard')) {
-      nextLevel = 'technical';
-      responseText = "Okay! Resetting to our standard technical level. A Convolutional Neural Network uses parameterized sliding tensor kernels to compute discrete cross-correlation feature maps, applying non-linear activation functions (ReLU) and dimensionality-reducing pooling layers. What specific component (convolutions, pooling, linear layers) should we dive into?";
-      suggestedActions = ["Explain MaxPooling math", "Show me a simple roadmap", "Give me a simple example"];
-    } else {
-      // Default technical response
-      nextLevel = 'technical';
-      responseText = "A Convolutional Neural Network (CNN) is a deep neural network class that uses convolutional layers to preserve the spatial hierarchy of pixels. Rather than connecting every pixel to every neuron (fully connected), it slide kernels across the grid to extract local features, making it highly parameter-efficient for vision tasks.";
-      suggestedActions = ["I don't understand this", "Give me an example", "Give me a practice question"];
-    }
-
-    setTimeout(() => {
-      setIsLoading(false);
-      setCurrentLevel(nextLevel);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `msg-${Date.now()}`,
-          sender: 'tutor',
-          text: responseText,
-          level: nextLevel,
-          suggestedActions,
-          isPracticeQuestion: isQuestion
-        }
-      ]);
-    }, 1200);
-  };
 
   const handleSend = async (textToSend: string) => {
     if (!textToSend.trim()) return;
@@ -121,39 +61,35 @@ export const StudentAssistant: React.FC = () => {
     ]);
     setInputText('');
 
-    if (mockMode) {
-      handleSimulatedTutor(textToSend);
-    } else if (user) {
-      setIsLoading(true);
-      try {
-        const response = await askStudentHTTP(
-          user.token,
-          selectedTopic?.id || "topic-cnn-001",
-          conversationId,
-          textToSend
-        );
-        setIsLoading(false);
-        if (response.conversation_id) {
-          setConversationId(response.conversation_id);
-        }
-        if (response.current_level) {
-          setCurrentLevel(response.current_level);
-        }
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `msg-${Date.now()}`,
-            sender: 'tutor',
-            text: response.content,
-            level: response.current_level || 'technical',
-            suggestedActions: response.suggested_next_actions || []
-          }
-        ]);
-      } catch (err) {
-        setIsLoading(false);
-        console.error("HTTP error calling student assistant:", err);
-        handleSimulatedTutor(textToSend);
+    setIsLoading(true);
+    try {
+      const response = await askStudentHTTP(
+        user?.token || '',
+        selectedTopic?.id || "topic-cnn-001",
+        conversationId,
+        textToSend
+      );
+      setIsLoading(false);
+      if (response.conversation_id) {
+        setConversationId(response.conversation_id);
       }
+      if (response.current_level) {
+        setCurrentLevel(response.current_level);
+      }
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}`,
+          sender: 'tutor',
+          text: response.text,
+          level: response.current_level,
+          suggestedActions: response.suggested_actions || [],
+          isPracticeQuestion: response.is_practice_question || false
+        }
+      ]);
+    } catch (err) {
+      console.error("Student AI API call error", err);
+      setIsLoading(false);
     }
   };
 

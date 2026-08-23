@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useEduOSStore } from '../../store/store';
 import { EduOSWebSocket } from '../../lib/ws';
+import { askTeacherHTTP } from '../../lib/api';
 import { Sparkles, Send, RefreshCw, Network } from 'lucide-react';
 import { DrawingCanvas } from '../canvas/DrawingCanvas';
 import { SecondBrainGraphModal } from '../canvas/SecondBrainGraphModal';
@@ -24,7 +25,7 @@ interface Message {
 }
 
 export const TeacherAssistant: React.FC = () => {
-  const { user, selectedTopic, mockMode, canvasModeActive, setCanvasModeActive } = useEduOSStore();
+  const { user, selectedTopic, canvasModeActive, setCanvasModeActive } = useEduOSStore();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -53,23 +54,18 @@ export const TeacherAssistant: React.FC = () => {
 
   // Set up real WS client if authenticated
   useEffect(() => {
-    if (!mockMode && user) {
+    if (user) {
       const convId = `teacher-conv-${Date.now()}`;
       const client = new EduOSWebSocket(
         convId,
         user.token,
         "teacher",
         (data) => {
-          // Handle incoming message chunks or final payload
           console.log("Teacher WS payload received:", data);
           setIsLoading(false);
-
           if (data.response_type) {
-            // Render specific structured response card
             const responseType = data.response_type;
             let payload: any = null;
-
-            // Map and parse content
             try {
               if (typeof data.content === 'string') {
                 payload = JSON.parse(data.content);
@@ -79,7 +75,6 @@ export const TeacherAssistant: React.FC = () => {
             } catch (e) {
               payload = data;
             }
-
             setMessages((prev) => [
               ...prev.filter(m => !m.isStreaming),
               {
@@ -90,7 +85,6 @@ export const TeacherAssistant: React.FC = () => {
               }
             ]);
           } else if (data.text) {
-            // Standard typing/streaming chunk fallback
             setMessages((prev) => {
               const existingStream = prev.find(m => m.isStreaming);
               if (existingStream) {
@@ -102,7 +96,7 @@ export const TeacherAssistant: React.FC = () => {
           }
         },
         (err) => {
-          console.error("Teacher WebSocket connection failed, fallback to simulated stream.", err);
+          console.error("Teacher WebSocket connection failed.", err);
         }
       );
       client.connect();
@@ -113,87 +107,9 @@ export const TeacherAssistant: React.FC = () => {
     } else {
       setWsClient(null);
     }
-  }, [mockMode, user]);
+  }, [user]);
 
-  // Simulated Streaming Responses for Demo Mode
-  const handleSimulatedResponse = (query: string) => {
-    setIsLoading(true);
-    let responseType = 'explanation';
-    let payload: any = null;
 
-    const lowerQuery = query.toLowerCase();
-
-    if (lowerQuery.includes('roadmap')) {
-      responseType = 'roadmap';
-      payload = {
-        nodes: [
-          { id: 'n1', label: '1. Kernels & Filters', order: 1 },
-          { id: 'n2', label: '2. Feature Extraction', order: 2 },
-          { id: 'n3', label: '3. Max Pooling', order: 3 },
-          { id: 'n4', label: '4. Classification Layers', order: 4 }
-        ],
-        edges: [
-          { from: 'n1', to: 'n2' },
-          { from: 'n2', to: 'n3' },
-          { from: 'n3', to: 'n4' }
-        ]
-      };
-    } else if (lowerQuery.includes('chart') || lowerQuery.includes('distribution')) {
-      responseType = 'chart';
-      payload = {
-        chart_type: 'bar',
-        labels: ['Conv2D', 'ReLU', 'MaxPool', 'Flatten', 'Dense'],
-        series: [45, 12, 28, 5, 62]
-      };
-    } else if (lowerQuery.includes('question') || lowerQuery.includes('quiz') || lowerQuery.includes('class question')) {
-      responseType = 'quick_question';
-      payload = {
-        question: "Why do we typically use Max Pooling instead of Average Pooling in standard Convolutional Networks?",
-        expected_answer_hint: "Max Pooling extracts the most prominent features (highest activation value) in a patch, preserving strong edge / texture gradients, whereas Average Pooling smooths out and dilutes features."
-      };
-    } else if (lowerQuery.includes('resource') || lowerQuery.includes('reference')) {
-      responseType = 'resources';
-      payload = {
-        resources: [
-          { title: "Module 3: CNN Fundamentals & Spatial Kernels (PDF)", type: "pdf", url_or_ref: "#" },
-          { title: "CNN Interactive Visualization (Visualizer)", type: "web", url_or_ref: "#" },
-          { title: "Stanford CS231n: Convolutional Layers Lecture (Stanford)", type: "youtube", url_or_ref: "#" }
-        ]
-      };
-    } else if (lowerQuery.includes('key point') || lowerQuery.includes('unit')) {
-      responseType = 'key_points';
-      payload = {
-        points: [
-          "Convolution layers preserve spatial relationships by learning local features instead of fully flattening the inputs.",
-          "Kernels/Filters are 3D tensors representing learned weights that slide across inputs to perform dot products.",
-          "ReLU activations add non-linearity, thresholding negative pixel features to 0.",
-          "Pooling layers perform downsampling, reducing the dimensions to achieve translation invariance."
-        ]
-      };
-    } else {
-      // Default: Explanation
-      responseType = 'explanation';
-      payload = {
-        summary: "A Convolutional Neural Network (CNN) is a deep learning architecture designed for visual data. Unlike standard fully connected networks that flatten images into 1D, CNNs use local spatial filters (kernels) that slide across the image, computing dot products to detect low-level features (edges, textures) and combining them into high-level features.",
-        real_world_example: "Imagine looking through a small magnifying glass and sliding it across a large photo piece by piece. First, you notice sharp edges (low-level features). As you combine small pieces, you recognize shapes like eyes or wheels (mid-level features). Finally, combining all pieces lets you identify the full picture as a face or car.",
-        key_points: ["Spatial Kernels", "Feature Maps", "ReLU activation", "Max Pooling"]
-      };
-    }
-
-    // Simulate streaming delays
-    setTimeout(() => {
-      setIsLoading(false);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `msg-${Date.now()}`,
-          sender: 'assistant',
-          responseType,
-          payload
-        }
-      ]);
-    }, 1500);
-  };
 
   const handleSend = async (textToSend: string) => {
     if (!textToSend.trim()) return;
@@ -207,11 +123,31 @@ export const TeacherAssistant: React.FC = () => {
     setMessages((prev) => [...prev, userMsg]);
     setInputText('');
 
-    if (mockMode || !wsClient) {
-      handleSimulatedResponse(textToSend);
-    } else {
-      setIsLoading(true);
-      wsClient.sendQuery(textToSend, selectedTopic?.id || "topic-cnn-001");
+    setIsLoading(true);
+    try {
+      if (wsClient) {
+        wsClient.sendQuery(textToSend, selectedTopic?.id || "topic-cnn-001");
+      } else {
+        const response = await askTeacherHTTP(
+          textToSend,
+          responseMode,
+          user?.token || '',
+          user?.institutionId || 'demo-inst-001'
+        );
+        setIsLoading(false);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${Date.now()}`,
+            sender: 'assistant',
+            responseType: response?.response_type || 'explanation',
+            payload: response
+          }
+        ]);
+      }
+    } catch (err) {
+      console.error("FastAPI AI Pipeline Call Error", err);
+      setIsLoading(false);
     }
   };
 
