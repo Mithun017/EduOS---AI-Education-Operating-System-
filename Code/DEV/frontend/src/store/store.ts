@@ -7,6 +7,8 @@ export interface UserSession {
   fullName: string;
   institutionId: string;
   email: string;
+  rollNumber?: string;
+  employeeId?: string;
 }
 
 interface EduOSStore {

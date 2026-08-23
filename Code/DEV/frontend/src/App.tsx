@@ -7,11 +7,11 @@ import {
   Laptop,
   Users,
   Compass,
-  CheckCircle2,
   Sun,
   Moon,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  UserCheck
 } from 'lucide-react';
 
 function App() {
@@ -33,6 +33,12 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Identity Form State
+  const [teacherName, setTeacherName] = useState('Prof. Sarah Jenkins');
+  const [teacherId, setTeacherId] = useState('FAC-102');
+  const [studentName, setStudentName] = useState('Alex Chen');
+  const [rollNumber, setRollNumber] = useState('21CS045');
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
@@ -51,34 +57,60 @@ function App() {
     loadAcademic();
   }, [setSubjects]);
 
-  // Login handler connecting directly to API
+  // Login handler
   const handleRoleLogin = async (role: 'teacher' | 'student') => {
     setAuthLoading(true);
     const email = role === 'teacher' ? 'teacher@demo.eduos.ai' : 'student@demo.eduos.ai';
     const password = 'password123';
+
+    const activeName = role === 'teacher' ? teacherName : studentName;
 
     try {
       const session = await loginUser(email, password);
       setUser({
         token: session.access_token,
         role: session.role,
-        fullName: session.full_name,
+        fullName: activeName || session.full_name,
         institutionId: session.institution_id,
-        email: email
+        email: email,
+        rollNumber: role === 'student' ? rollNumber : undefined,
+        employeeId: role === 'teacher' ? teacherId : undefined
       });
       setViewMode(role);
     } catch (err: any) {
-      console.warn("FastAPI Authentication failed.", err);
+      console.warn("FastAPI Authentication failed, updating local role profile.", err);
       setUser({
         token: "jwt-token-val-12345",
         role: role,
-        fullName: role === 'teacher' ? 'Teacher' : 'Student',
+        fullName: activeName,
         institutionId: 'inst-001',
-        email: email
+        email: email,
+        rollNumber: role === 'student' ? rollNumber : undefined,
+        employeeId: role === 'teacher' ? teacherId : undefined
       });
       setViewMode(role);
     } finally {
       setAuthLoading(false);
+    }
+  };
+
+  // Apply profile changes directly
+  const applyProfileChanges = () => {
+    if (!user) return;
+    if (viewMode === 'teacher') {
+      setUser({
+        ...user,
+        role: 'teacher',
+        fullName: teacherName || 'Teacher User',
+        employeeId: teacherId
+      });
+    } else {
+      setUser({
+        ...user,
+        role: 'student',
+        fullName: studentName || 'Student User',
+        rollNumber: rollNumber
+      });
     }
   };
 
@@ -136,7 +168,10 @@ function App() {
                   {user.fullName}
                 </span>
                 <span className="text-[8px] text-[var(--text-secondary)] font-mono tracking-wide block leading-none">
-                  {user.role} ({user.institutionId})
+                  {user.role === 'teacher'
+                    ? `Faculty ${user.employeeId ? `#${user.employeeId}` : ''}`
+                    : `Roll #${user.rollNumber || '21CS045'}`
+                  }
                 </span>
               </div>
             </div>
@@ -146,58 +181,110 @@ function App() {
 
       {/* Main Workspace Layout */}
       <main className="flex-1 max-w-[1800px] w-full mx-auto p-3 md:p-4 flex gap-4 transition-all duration-300 relative">
-        {/* Collapsible Left Side Panel: Role & Scope Selectors */}
+        {/* Collapsible Left Side Panel: Role & Identity Selectors */}
         <div
           className={`transition-all duration-300 flex flex-col gap-3 shrink-0 ${
             sidebarOpen ? 'w-72 opacity-100' : 'w-0 opacity-0 overflow-hidden pointer-events-none p-0 border-0'
           }`}
         >
-          {/* Role Selector */}
-          <div className="glass-panel p-3.5 space-y-2.5">
+          {/* User & Role Configuration */}
+          <div className="glass-panel p-3.5 space-y-3">
             <div className="flex items-center gap-2 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-1.5">
               <Users className="w-3.5 h-3.5" />
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">Choose Role</h4>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">User & Role Profile</h4>
             </div>
 
-            <div className="flex flex-col gap-1.5">
+            {/* Role Buttons */}
+            <div className="flex gap-2">
               <button
                 onClick={() => handleRoleLogin('teacher')}
                 disabled={authLoading}
-                className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-xl border text-center transition-all cursor-pointer ${
                   viewMode === 'teacher'
                     ? 'bg-[var(--accent-primary-soft)] border-[var(--accent-primary)] text-[var(--accent-primary)] font-semibold shadow-sm'
                     : 'bg-[var(--glass-bg)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Laptop className="w-4 h-4" />
-                  <div>
-                    <span className="text-xs font-semibold block leading-tight">Teacher</span>
-                    <span className="text-[8px] opacity-75 font-mono">Faculty Access</span>
-                  </div>
-                </div>
-                {viewMode === 'teacher' && <CheckCircle2 className="w-3.5 h-3.5 text-[var(--accent-primary)]" />}
+                <Laptop className="w-3.5 h-3.5" />
+                <span className="text-xs font-semibold">Teacher</span>
               </button>
 
               <button
                 onClick={() => handleRoleLogin('student')}
                 disabled={authLoading}
-                className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                className={`flex-1 flex items-center justify-center gap-1.5 p-2 rounded-xl border text-center transition-all cursor-pointer ${
                   viewMode === 'student'
                     ? 'bg-[var(--accent-primary-soft)] border-[var(--accent-primary)] text-[var(--accent-primary)] font-semibold shadow-sm'
                     : 'bg-[var(--glass-bg)] border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-[var(--accent-primary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  <div>
-                    <span className="text-xs font-semibold block leading-tight">Student</span>
-                    <span className="text-[8px] opacity-75 font-mono">Learner Access</span>
-                  </div>
-                </div>
-                {viewMode === 'student' && <CheckCircle2 className="w-3.5 h-3.5 text-[var(--accent-primary)]" />}
+                <Users className="w-3.5 h-3.5" />
+                <span className="text-xs font-semibold">Student</span>
               </button>
             </div>
+
+            {/* Input Form based on Active Role */}
+            {viewMode === 'teacher' ? (
+              <div className="space-y-2 pt-1 border-t border-[var(--border-subtle)]">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Teacher Name</label>
+                  <input
+                    type="text"
+                    value={teacherName}
+                    onChange={(e) => setTeacherName(e.target.value)}
+                    placeholder="e.g. Prof. Sarah Jenkins"
+                    className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Faculty ID</label>
+                  <input
+                    type="text"
+                    value={teacherId}
+                    onChange={(e) => setTeacherId(e.target.value)}
+                    placeholder="e.g. FAC-102"
+                    className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+                  />
+                </div>
+                <button
+                  onClick={applyProfileChanges}
+                  className="w-full flex items-center justify-center gap-1 py-1.5 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-xs font-bold shadow hover:opacity-90 transition-all cursor-pointer mt-1"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Update Teacher Profile</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2 pt-1 border-t border-[var(--border-subtle)]">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Student Name</label>
+                  <input
+                    type="text"
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                    placeholder="e.g. Alex Chen"
+                    className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Roll Number</label>
+                  <input
+                    type="text"
+                    value={rollNumber}
+                    onChange={(e) => setRollNumber(e.target.value)}
+                    placeholder="e.g. 21CS045"
+                    className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
+                  />
+                </div>
+                <button
+                  onClick={applyProfileChanges}
+                  className="w-full flex items-center justify-center gap-1 py-1.5 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-xs font-bold shadow hover:opacity-90 transition-all cursor-pointer mt-1"
+                >
+                  <UserCheck className="w-3.5 h-3.5" />
+                  <span>Update Student Profile</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Curriculum Scope Selector */}
