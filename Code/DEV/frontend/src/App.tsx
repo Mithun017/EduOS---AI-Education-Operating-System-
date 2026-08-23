@@ -11,13 +11,18 @@ import {
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
-  UserCheck
+  UserCheck,
+  PlusCircle,
+  BookPlus,
+  FolderPlus
 } from 'lucide-react';
 
 function App() {
   const {
     user,
     setUser,
+    teachers,
+    students,
     subjects,
     setSubjects,
     selectedSubject,
@@ -27,7 +32,11 @@ function App() {
     viewMode,
     setViewMode,
     theme,
-    toggleTheme
+    toggleTheme,
+    addTeacher,
+    addStudent,
+    addSubject,
+    addTopic
   } = useEduOSStore();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -39,6 +48,17 @@ function App() {
   const [studentName, setStudentName] = useState('Alex Chen');
   const [rollNumber, setRollNumber] = useState('21CS045');
 
+  // Creation Toggle Forms
+  const [showAddTeacher, setShowAddTeacher] = useState(false);
+  const [showAddStudent, setShowAddStudent] = useState(false);
+  const [showAddSubject, setShowAddSubject] = useState(false);
+  const [showAddTopic, setShowAddTopic] = useState(false);
+
+  // New Subject & Topic Input State
+  const [newSubjCode, setNewSubjCode] = useState('');
+  const [newSubjName, setNewSubjName] = useState('');
+  const [newTopicName, setNewTopicName] = useState('');
+
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
@@ -48,10 +68,11 @@ function App() {
     const loadAcademic = async () => {
       try {
         const data = await fetchAcademicContext();
-        setSubjects(data);
+        if (data && data.length > 0) {
+          setSubjects(data);
+        }
       } catch (err) {
         console.warn("Could not load academic context from backend API.", err);
-        setSubjects([]);
       }
     };
     loadAcademic();
@@ -62,7 +83,6 @@ function App() {
     setAuthLoading(true);
     const email = role === 'teacher' ? 'teacher@demo.eduos.ai' : 'student@demo.eduos.ai';
     const password = 'password123';
-
     const activeName = role === 'teacher' ? teacherName : studentName;
 
     try {
@@ -94,7 +114,7 @@ function App() {
     }
   };
 
-  // Apply profile changes directly
+  // Apply teacher/student profile changes
   const applyProfileChanges = () => {
     if (!user) return;
     if (viewMode === 'teacher') {
@@ -112,6 +132,40 @@ function App() {
         rollNumber: rollNumber
       });
     }
+  };
+
+  // Add & select new teacher
+  const handleAddNewTeacher = () => {
+    if (!teacherName.trim()) return;
+    addTeacher(teacherName.trim(), teacherId.trim() || `FAC-${Math.floor(Math.random() * 900 + 100)}`);
+    applyProfileChanges();
+    setShowAddTeacher(false);
+  };
+
+  // Add & select new student
+  const handleAddNewStudent = () => {
+    if (!studentName.trim()) return;
+    addStudent(studentName.trim(), rollNumber.trim() || `21CS${Math.floor(Math.random() * 90 + 10)}`);
+    applyProfileChanges();
+    setShowAddStudent(false);
+  };
+
+  // Add & select new subject
+  const handleAddNewSubject = () => {
+    if (!newSubjName.trim()) return;
+    const code = newSubjCode.trim() || `CS${Math.floor(Math.random() * 900 + 100)}`;
+    addSubject(code, newSubjName.trim());
+    setNewSubjCode('');
+    setNewSubjName('');
+    setShowAddSubject(false);
+  };
+
+  // Add & select new topic
+  const handleAddNewTopic = () => {
+    if (!newTopicName.trim() || !selectedSubject) return;
+    addTopic(selectedSubject.id, newTopicName.trim());
+    setNewTopicName('');
+    setShowAddTopic(false);
   };
 
   // Perform initial login automatically on launch
@@ -148,7 +202,7 @@ function App() {
           </div>
         </div>
 
-        {/* Global Controls & User Profile */}
+        {/* Global Controls & Active Profile */}
         <div className="flex items-center gap-2.5">
           {/* Theme Toggle */}
           <button
@@ -181,17 +235,19 @@ function App() {
 
       {/* Main Workspace Layout */}
       <main className="flex-1 max-w-[1800px] w-full mx-auto p-3 md:p-4 flex gap-4 transition-all duration-300 relative">
-        {/* Collapsible Left Side Panel: Role & Identity Selectors */}
+        {/* Collapsible Left Side Panel */}
         <div
           className={`transition-all duration-300 flex flex-col gap-3 shrink-0 ${
             sidebarOpen ? 'w-72 opacity-100' : 'w-0 opacity-0 overflow-hidden pointer-events-none p-0 border-0'
           }`}
         >
-          {/* User & Role Configuration */}
+          {/* 1. TEACHER & STUDENT PROFILE MANAGER */}
           <div className="glass-panel p-3.5 space-y-3">
-            <div className="flex items-center gap-2 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-1.5">
-              <Users className="w-3.5 h-3.5" />
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">User & Role Profile</h4>
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-1.5">
+              <div className="flex items-center gap-2 text-[var(--accent-primary)]">
+                <Users className="w-3.5 h-3.5" />
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">Role & Profile Manager</h4>
+              </div>
             </div>
 
             {/* Role Buttons */}
@@ -223,78 +279,198 @@ function App() {
               </button>
             </div>
 
-            {/* Input Form based on Active Role */}
+            {/* TEACHER MANAGEMENT */}
             {viewMode === 'teacher' ? (
               <div className="space-y-2 pt-1 border-t border-[var(--border-subtle)]">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Teacher Name</label>
-                  <input
-                    type="text"
-                    value={teacherName}
-                    onChange={(e) => setTeacherName(e.target.value)}
-                    placeholder="e.g. Prof. Sarah Jenkins"
-                    className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
-                  />
+                <div className="flex items-center justify-between">
+                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Select Saved Teacher</label>
+                  <button
+                    onClick={() => setShowAddTeacher(!showAddTeacher)}
+                    className="text-[9px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3 h-3" />
+                    <span>{showAddTeacher ? "Cancel" : "+ Add Teacher"}</span>
+                  </button>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Faculty ID</label>
-                  <input
-                    type="text"
-                    value={teacherId}
-                    onChange={(e) => setTeacherId(e.target.value)}
-                    placeholder="e.g. FAC-102"
-                    className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
-                  />
-                </div>
-                <button
-                  onClick={applyProfileChanges}
-                  className="w-full flex items-center justify-center gap-1 py-1.5 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-xs font-bold shadow hover:opacity-90 transition-all cursor-pointer mt-1"
+
+                {/* Dropdown of Saved Teachers */}
+                <select
+                  value={teachers.find(t => t.name === teacherName)?.id || ''}
+                  onChange={(e) => {
+                    const match = teachers.find(t => t.id === e.target.value);
+                    if (match) {
+                      setTeacherName(match.name);
+                      setTeacherId(match.employeeId);
+                      setUser({ ...user!, fullName: match.name, employeeId: match.employeeId });
+                    }
+                  }}
+                  className="w-full bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
                 >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Update Teacher Profile</span>
-                </button>
+                  {teachers.map((t) => (
+                    <option key={t.id} value={t.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                      {t.name} ({t.employeeId})
+                    </option>
+                  ))}
+                </select>
+
+                {/* Inline Add Teacher Form */}
+                {showAddTeacher ? (
+                  <div className="p-2 rounded-lg bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] space-y-2 animate-fade-in">
+                    <input
+                      type="text"
+                      value={teacherName}
+                      onChange={(e) => setTeacherName(e.target.value)}
+                      placeholder="Teacher Full Name"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
+                    />
+                    <input
+                      type="text"
+                      value={teacherId}
+                      onChange={(e) => setTeacherId(e.target.value)}
+                      placeholder="Faculty ID (e.g. FAC-102)"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
+                    />
+                    <button
+                      onClick={handleAddNewTeacher}
+                      className="w-full py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded text-xs font-bold shadow cursor-pointer"
+                    >
+                      Save & Activate Teacher
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={applyProfileChanges}
+                    className="w-full flex items-center justify-center gap-1 py-1.5 bg-[var(--glass-bg)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+                    <span>Set Active Profile</span>
+                  </button>
+                )}
               </div>
             ) : (
+              /* STUDENT MANAGEMENT */
               <div className="space-y-2 pt-1 border-t border-[var(--border-subtle)]">
-                <div className="space-y-1">
-                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Student Name</label>
-                  <input
-                    type="text"
-                    value={studentName}
-                    onChange={(e) => setStudentName(e.target.value)}
-                    placeholder="e.g. Alex Chen"
-                    className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
-                  />
+                <div className="flex items-center justify-between">
+                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Select Saved Student</label>
+                  <button
+                    onClick={() => setShowAddStudent(!showAddStudent)}
+                    className="text-[9px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                  >
+                    <PlusCircle className="w-3 h-3" />
+                    <span>{showAddStudent ? "Cancel" : "+ Add Student"}</span>
+                  </button>
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Roll Number</label>
-                  <input
-                    type="text"
-                    value={rollNumber}
-                    onChange={(e) => setRollNumber(e.target.value)}
-                    placeholder="e.g. 21CS045"
-                    className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)]"
-                  />
-                </div>
-                <button
-                  onClick={applyProfileChanges}
-                  className="w-full flex items-center justify-center gap-1 py-1.5 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-xs font-bold shadow hover:opacity-90 transition-all cursor-pointer mt-1"
+
+                {/* Dropdown of Saved Students */}
+                <select
+                  value={students.find(s => s.name === studentName)?.id || ''}
+                  onChange={(e) => {
+                    const match = students.find(s => s.id === e.target.value);
+                    if (match) {
+                      setStudentName(match.name);
+                      setRollNumber(match.rollNumber);
+                      setUser({ ...user!, fullName: match.name, rollNumber: match.rollNumber });
+                    }
+                  }}
+                  className="w-full bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
                 >
-                  <UserCheck className="w-3.5 h-3.5" />
-                  <span>Update Student Profile</span>
-                </button>
+                  {students.map((s) => (
+                    <option key={s.id} value={s.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                      {s.name} (Roll #{s.rollNumber})
+                    </option>
+                  ))}
+                </select>
+
+                {/* Inline Add Student Form */}
+                {showAddStudent ? (
+                  <div className="p-2 rounded-lg bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] space-y-2 animate-fade-in">
+                    <input
+                      type="text"
+                      value={studentName}
+                      onChange={(e) => setStudentName(e.target.value)}
+                      placeholder="Student Full Name"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
+                    />
+                    <input
+                      type="text"
+                      value={rollNumber}
+                      onChange={(e) => setRollNumber(e.target.value)}
+                      placeholder="Roll Number (e.g. 21CS045)"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
+                    />
+                    <button
+                      onClick={handleAddNewStudent}
+                      className="w-full py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded text-xs font-bold shadow cursor-pointer"
+                    >
+                      Save & Activate Student
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={applyProfileChanges}
+                    className="w-full flex items-center justify-center gap-1 py-1.5 bg-[var(--glass-bg)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] text-[var(--text-primary)] rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
+                    <span>Set Active Profile</span>
+                  </button>
+                )}
               </div>
             )}
           </div>
 
-          {/* Curriculum Scope Selector */}
+          {/* 2. CURRICULUM & SUBJECT MANAGER */}
           <div className="glass-panel p-3.5 space-y-2.5">
-            <div className="flex items-center gap-2 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-1.5">
-              <Compass className="w-3.5 h-3.5" />
-              <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">Curriculum Scope</h4>
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-1.5">
+              <div className="flex items-center gap-2 text-[var(--accent-primary)]">
+                <Compass className="w-3.5 h-3.5" />
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">Curriculum Scope</h4>
+              </div>
+              <button
+                onClick={() => setShowAddSubject(!showAddSubject)}
+                className="text-[9px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-1 cursor-pointer"
+                title="Add New Subject"
+              >
+                <BookPlus className="w-3 h-3" />
+                <span>+ Add Subject</span>
+              </button>
             </div>
 
+            {/* Inline Add Subject Form */}
+            {showAddSubject && (
+              <div className="p-2 rounded-lg bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] space-y-2 animate-fade-in">
+                <input
+                  type="text"
+                  value={newSubjCode}
+                  onChange={(e) => setNewSubjCode(e.target.value)}
+                  placeholder="Code (e.g. CS701)"
+                  className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
+                />
+                <input
+                  type="text"
+                  value={newSubjName}
+                  onChange={(e) => setNewSubjName(e.target.value)}
+                  placeholder="Subject Name (e.g. Quantum Computing)"
+                  className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
+                />
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={handleAddNewSubject}
+                    className="flex-1 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded text-xs font-bold cursor-pointer"
+                  >
+                    Create Subject
+                  </button>
+                  <button
+                    onClick={() => setShowAddSubject(false)}
+                    className="px-2 py-1 bg-[var(--glass-bg)] text-[var(--text-secondary)] rounded text-xs cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
+              {/* Subject Select */}
               <div className="space-y-1">
                 <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Subject</label>
                 <select
@@ -305,21 +481,57 @@ function App() {
                   }}
                   className="w-full bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
                 >
-                  {subjects.length === 0 ? (
-                    <option value="">No Subjects Loaded</option>
-                  ) : (
-                    subjects.map((sub) => (
-                      <option key={sub.id} value={sub.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                        {sub.code} - {sub.name}
-                      </option>
-                    ))
-                  )}
+                  {subjects.map((sub) => (
+                    <option key={sub.id} value={sub.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                      {sub.code} - {sub.name}
+                    </option>
+                  ))}
                 </select>
               </div>
 
-              {selectedSubject && selectedSubject.units.length > 0 && (
-                <div className="space-y-1">
+              {/* Topic Select & Add Topic */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
                   <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Topic</label>
+                  {selectedSubject && (
+                    <button
+                      onClick={() => setShowAddTopic(!showAddTopic)}
+                      className="text-[8px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <FolderPlus className="w-2.5 h-2.5" />
+                      <span>+ Add Topic</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Inline Add Topic Form */}
+                {showAddTopic && (
+                  <div className="p-2 rounded-lg bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] space-y-2 my-1 animate-fade-in">
+                    <input
+                      type="text"
+                      value={newTopicName}
+                      onChange={(e) => setNewTopicName(e.target.value)}
+                      placeholder="Topic Name (e.g. Qubits & Superposition)"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
+                    />
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={handleAddNewTopic}
+                        className="flex-1 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded text-xs font-bold cursor-pointer"
+                      >
+                        Add Topic
+                      </button>
+                      <button
+                        onClick={() => setShowAddTopic(false)}
+                        className="px-2 py-1 bg-[var(--glass-bg)] text-[var(--text-secondary)] rounded text-xs cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedSubject && selectedSubject.units.length > 0 && selectedSubject.units[0].topics.length > 0 && (
                   <select
                     value={selectedTopic?.id || ''}
                     onChange={(e) => {
@@ -335,8 +547,8 @@ function App() {
                       </option>
                     ))}
                   </select>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
