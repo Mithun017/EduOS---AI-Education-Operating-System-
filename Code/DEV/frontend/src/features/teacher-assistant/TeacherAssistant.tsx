@@ -242,7 +242,7 @@ export const TeacherAssistant: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-[var(--glass-bg)] rounded-2xl border border-[var(--border-subtle)] overflow-hidden shadow-2xl transition-all duration-300">
       {/* Header */}
-      <div className="bg-[var(--glass-bg)]/40 border-b border-[var(--border-subtle)] p-4 flex items-center justify-between">
+      <div className="bg-[var(--glass-bg)]/40 border-b border-[var(--border-subtle)] p-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-lg bg-[var(--accent-primary-soft)] flex items-center justify-center text-[var(--accent-primary)] font-extrabold border border-[var(--border-subtle)]">
             T
@@ -273,9 +273,9 @@ export const TeacherAssistant: React.FC = () => {
               onChange={(e: any) => setResponseMode(e.target.value)}
               className="bg-transparent text-[10px] text-[var(--accent-primary)] focus:outline-none cursor-pointer"
             >
-              <option value="hybrid" className="bg-slate-950 text-slate-100">Hybrid</option>
-              <option value="institution_grounded" className="bg-slate-950 text-slate-100">Grounded</option>
-              <option value="general" className="bg-slate-950 text-slate-100">General</option>
+              <option value="hybrid" className="bg-[var(--card-bg)] text-[var(--text-primary)]">Hybrid</option>
+              <option value="institution_grounded" className="bg-[var(--card-bg)] text-[var(--text-primary)]">Grounded</option>
+              <option value="general" className="bg-[var(--card-bg)] text-[var(--text-primary)]">General</option>
             </select>
           </div>
         </div>
@@ -291,9 +291,9 @@ export const TeacherAssistant: React.FC = () => {
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-3">
-            <Sparkles className="w-8 h-8 text-indigo-400/80 animate-bounce" />
-            <h4 className="font-medium text-slate-200 text-sm">Ask EduOS Live Assistant</h4>
-            <p className="text-xs text-slate-400 max-w-[280px]">
+            <Sparkles className="w-8 h-8 text-[var(--accent-primary)] animate-bounce" />
+            <h4 className="font-medium text-[var(--text-primary)] text-sm">Ask EduOS Live Assistant</h4>
+            <p className="text-xs text-[var(--text-secondary)] max-w-[280px]">
               Tap a quick chip below or query explanations, diagrams, roadmaps, and quiz questions instantly while teaching.
             </p>
           </div>
@@ -305,11 +305,11 @@ export const TeacherAssistant: React.FC = () => {
             className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'} gap-1.5`}
           >
             {msg.sender === 'user' ? (
-              <div className="max-w-[85%] bg-indigo-600 border border-indigo-500 text-white rounded-2xl rounded-tr-none px-4 py-2 text-sm shadow-md animate-fade-in">
+              <div className="max-w-[85%] bg-[var(--accent-primary)] text-[var(--text-inverse)] font-medium rounded-2xl rounded-tr-none px-4 py-2 text-sm shadow-md animate-fade-in">
                 {msg.text}
               </div>
             ) : msg.isStreaming ? (
-              <div className="max-w-[90%] glass-panel px-4 py-3 text-sm text-slate-200 typing-cursor animate-fade-in">
+              <div className="max-w-[90%] glass-panel px-4 py-3 text-sm text-[var(--text-primary)] typing-cursor animate-fade-in">
                 {msg.text}
               </div>
             ) : (
@@ -321,7 +321,7 @@ export const TeacherAssistant: React.FC = () => {
         ))}
 
         {isLoading && (
-          <div className="flex items-center gap-2 p-3 glass-panel-interactive text-indigo-400 text-xs w-32 justify-center">
+          <div className="flex items-center gap-2 p-3 glass-panel-interactive text-[var(--accent-primary)] text-xs w-32 justify-center font-medium">
             <RefreshCw className="w-4 h-4 animate-spin" />
             Generating...
           </div>
@@ -330,14 +330,14 @@ export const TeacherAssistant: React.FC = () => {
       </div>
 
       {/* Quick Action Drawer */}
-      <div className="px-4 py-2 bg-slate-950/40 border-t border-slate-850/60">
+      <div className="px-4 py-2 bg-[var(--glass-bg)] border-t border-[var(--border-subtle)]">
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
           {quickActions.map((act, idx) => (
             <button
               key={idx}
               onClick={() => handleSend(act.text)}
               disabled={isLoading}
-              className="flex-shrink-0 bg-slate-900 border border-slate-800 text-slate-300 hover:text-slate-100 hover:border-indigo-500/40 px-3 py-1.5 rounded-lg text-[10px] font-medium transition-all hover:bg-indigo-950/20 active:scale-95"
+              className="flex-shrink-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] px-3 py-1.5 rounded-xl text-[10px] font-medium transition-all hover:bg-[var(--accent-primary-soft)] active:scale-95 cursor-pointer"
             >
               {act.label}
             </button>
@@ -346,7 +346,7 @@ export const TeacherAssistant: React.FC = () => {
       </div>
 
       {/* Input bar */}
-      <div className="p-3 bg-slate-950 border-t border-slate-850 flex items-center gap-2">
+      <div className="p-3 bg-[var(--glass-bg)] border-t border-[var(--border-subtle)] flex items-center gap-2">
         <input
           type="text"
           value={inputText}
@@ -354,12 +354,12 @@ export const TeacherAssistant: React.FC = () => {
           onKeyDown={(e) => e.key === 'Enter' && handleSend(inputText)}
           placeholder="Ask something... (e.g. show roadmap for CNN)"
           disabled={isLoading}
-          className="flex-1 bg-slate-900 border border-slate-800/80 rounded-xl px-4 py-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-indigo-500/60 focus:ring-1 focus:ring-indigo-500/40 transition-all disabled:opacity-50"
+          className="flex-1 bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-xl px-4 py-2.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent-primary)] transition-all disabled:opacity-50"
         />
         <button
           onClick={() => handleSend(inputText)}
           disabled={isLoading || !inputText.trim()}
-          className="p-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium shadow-md shadow-indigo-950/40 active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none"
+          className="p-2.5 rounded-xl bg-[var(--accent-primary)] hover:opacity-90 text-[var(--text-inverse)] font-bold shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
         >
           <Send className="w-4 h-4" />
         </button>

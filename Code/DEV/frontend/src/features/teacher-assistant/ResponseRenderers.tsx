@@ -13,30 +13,30 @@ export interface ExplanationData {
 export const ExplanationCard: React.FC<{ data: ExplanationData }> = ({ data }) => {
   return (
     <div className="glass-panel-interactive p-6 space-y-4 animate-slide-up">
-      <div className="flex items-center gap-3 text-indigo-400 border-b border-slate-800/80 pb-3">
+      <div className="flex items-center gap-3 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-3">
         <BookOpen className="w-5 h-5 animate-pulse" />
-        <h4 className="font-semibold text-lg text-slate-100">Grounded Explanation</h4>
+        <h4 className="font-semibold text-lg text-[var(--text-primary)]">Grounded Explanation</h4>
       </div>
       
-      <p className="text-slate-300 leading-relaxed text-sm">{data.summary}</p>
+      <p className="text-[var(--text-primary)] leading-relaxed text-sm">{data.summary}</p>
       
       {data.real_world_example && (
-        <div className="bg-indigo-950/40 border-l-4 border-indigo-500 p-4 rounded-r-xl space-y-2">
-          <div className="flex items-center gap-2 text-indigo-300 font-medium text-xs uppercase tracking-wider">
+        <div className="bg-[var(--accent-primary-soft)] border-l-4 border-[var(--accent-primary)] p-4 rounded-r-xl space-y-2">
+          <div className="flex items-center gap-2 text-[var(--accent-primary)] font-medium text-xs uppercase tracking-wider">
             <Lightbulb className="w-4 h-4 text-amber-400" />
             Real-world Example
           </div>
-          <p className="text-slate-300 text-sm italic">{data.real_world_example}</p>
+          <p className="text-[var(--text-primary)] text-sm italic">{data.real_world_example}</p>
         </div>
       )}
       
       {data.key_points && data.key_points.length > 0 && (
         <div className="space-y-2">
-          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Key Concepts</span>
+          <span className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider block">Key Concepts</span>
           <div className="flex flex-wrap gap-2">
             {data.key_points.map((pt, idx) => (
-              <span key={idx} className="bg-slate-800/60 border border-slate-700/50 text-slate-300 text-xs px-3 py-1 rounded-full flex items-center gap-1.5 hover:border-indigo-500/40 transition-colors">
-                <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400" />
+              <span key={idx} className="bg-[var(--glass-bg)] border border-[var(--border-subtle)] text-[var(--text-primary)] text-xs px-3 py-1 rounded-full flex items-center gap-1.5 hover:border-[var(--accent-primary)] transition-colors">
+                <CheckCircle2 className="w-3.5 h-3.5 text-[var(--accent-primary)]" />
                 {pt}
               </span>
             ))}
@@ -92,19 +92,19 @@ export const RoadmapDiagram: React.FC<{ data: RoadmapData }> = ({ data }) => {
 
   return (
     <div className="glass-panel-interactive p-6 space-y-4 animate-slide-up">
-      <div className="flex items-center gap-3 text-emerald-400 border-b border-slate-800/80 pb-3">
+      <div className="flex items-center gap-3 text-emerald-400 border-b border-[var(--border-subtle)] pb-3">
         <MapPin className="w-5 h-5" />
-        <h4 className="font-semibold text-lg text-slate-100">Topic Roadmap & Learning Path</h4>
+        <h4 className="font-semibold text-lg text-[var(--text-primary)]">Topic Roadmap & Learning Path</h4>
       </div>
 
-      <div className="w-full overflow-x-auto bg-slate-950/50 p-4 rounded-xl border border-slate-800/60">
+      <div className="w-full overflow-x-auto bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--border-subtle)]">
         <svg viewBox="0 0 600 240" className="w-full min-w-[500px] h-auto">
           <defs>
             <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 1.5 L 10 5 L 0 8.5 z" className="fill-slate-600" />
+              <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="var(--text-secondary)" />
             </marker>
             <marker id="arrow-active" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-              <path d="M 0 1.5 L 10 5 L 0 8.5 z" className="fill-emerald-500" />
+              <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="var(--accent-primary)" />
             </marker>
           </defs>
 
@@ -119,7 +119,6 @@ export const RoadmapDiagram: React.FC<{ data: RoadmapData }> = ({ data }) => {
             const toX = toNode.x + boxWidth / 2;
             const toY = toNode.y + boxHeight / 2;
 
-            // Offset to avoid intersecting the boxes directly
             const angle = Math.atan2(toY - fromY, toX - fromX);
             const dx = Math.cos(angle) * (boxWidth / 2 + 5);
             const dy = Math.sin(angle) * (boxHeight / 2 + 5);
@@ -138,9 +137,9 @@ export const RoadmapDiagram: React.FC<{ data: RoadmapData }> = ({ data }) => {
                 y1={startPtY}
                 x2={endPtX}
                 y2={endPtY}
-                className={`stroke-2 transition-all duration-300 ${
-                  isActive ? 'stroke-emerald-400' : 'stroke-slate-700/60'
-                }`}
+                stroke={isActive ? "var(--accent-primary)" : "var(--border-subtle)"}
+                strokeWidth={2}
+                className="transition-all duration-300"
                 markerEnd={isActive ? 'url(#arrow-active)' : 'url(#arrow)'}
               />
             );
@@ -160,17 +159,17 @@ export const RoadmapDiagram: React.FC<{ data: RoadmapData }> = ({ data }) => {
                   width={boxWidth}
                   height={boxHeight}
                   rx={8}
-                  className={`transition-colors duration-300 stroke-2 cursor-pointer ${
-                    isSelected 
-                      ? 'fill-emerald-950/70 stroke-emerald-400' 
-                      : 'fill-slate-900/90 stroke-slate-800 hover:stroke-slate-600'
-                  }`}
+                  fill={isSelected ? "var(--accent-primary-soft)" : "var(--glass-bg)"}
+                  stroke={isSelected ? "var(--accent-primary)" : "var(--border-subtle)"}
+                  strokeWidth={2}
+                  className="transition-all duration-300 cursor-pointer"
                 />
                 <text
                   x={boxWidth / 2}
                   y={boxHeight / 2 + 4}
                   textAnchor="middle"
-                  className={`text-[11px] font-medium cursor-pointer fill-slate-100`}
+                  fill="var(--text-primary)"
+                  className="text-[11px] font-semibold cursor-pointer"
                 >
                   {node.label}
                 </text>
@@ -179,7 +178,7 @@ export const RoadmapDiagram: React.FC<{ data: RoadmapData }> = ({ data }) => {
           })}
         </svg>
       </div>
-      <p className="text-slate-400 text-xs italic">💡 Click on any node to highlight its paths.</p>
+      <p className="text-[var(--text-secondary)] text-xs italic">💡 Click on any node to highlight its paths.</p>
     </div>
   );
 };
@@ -200,26 +199,26 @@ export const ChartCard: React.FC<{ data: ChartData }> = ({ data }) => {
 
   return (
     <div className="glass-panel-interactive p-6 space-y-4 animate-slide-up">
-      <div className="flex items-center gap-3 text-amber-400 border-b border-slate-800/80 pb-3">
+      <div className="flex items-center gap-3 text-amber-400 border-b border-[var(--border-subtle)] pb-3">
         <BarChart3 className="w-5 h-5" />
-        <h4 className="font-semibold text-lg text-slate-100">Topic Analysis Chart</h4>
+        <h4 className="font-semibold text-lg text-[var(--text-primary)]">Topic Analysis Chart</h4>
       </div>
 
-      <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800/60">
+      <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--border-subtle)]">
         {data.chart_type === 'bar' ? (
-          <div className="flex items-end justify-between h-[150px] px-4 pt-4 border-b border-slate-800">
+          <div className="flex items-end justify-between h-[150px] px-4 pt-4 border-b border-[var(--border-subtle)]">
             {data.series.map((val, idx) => {
               const heightPercent = (val / maxValue) * 100;
               return (
                 <div key={idx} className="flex flex-col items-center flex-1 group">
-                  <span className="text-[10px] text-slate-400 mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <span className="text-[10px] text-[var(--text-secondary)] mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {val}
                   </span>
                   <div 
                     style={{ height: `${heightPercent}%` }}
-                    className="w-8 max-w-full rounded-t bg-gradient-to-t from-amber-600 to-amber-400 group-hover:from-amber-500 group-hover:to-amber-300 transition-all duration-300 shadow-md shadow-amber-950/30"
+                    className="w-8 max-w-full rounded-t bg-gradient-to-t from-amber-600 to-amber-400 group-hover:from-amber-500 group-hover:to-amber-300 transition-all duration-300 shadow-md"
                   />
-                  <span className="text-[10px] text-slate-400 mt-2 truncate w-12 text-center">
+                  <span className="text-[10px] text-[var(--text-secondary)] mt-2 truncate w-12 text-center">
                     {data.labels[idx]}
                   </span>
                 </div>
@@ -231,9 +230,9 @@ export const ChartCard: React.FC<{ data: ChartData }> = ({ data }) => {
           <div className="relative pt-4">
             <svg viewBox="0 0 300 120" className="w-full h-[120px]">
               {/* Draw grid lines */}
-              <line x1="0" y1="20" x2="300" y2="20" className="stroke-slate-800/50 stroke-1" />
-              <line x1="0" y1="60" x2="300" y2="60" className="stroke-slate-800/50 stroke-1" />
-              <line x1="0" y1="100" x2="300" y2="100" className="stroke-slate-800 stroke-1" />
+              <line x1="0" y1="20" x2="300" y2="20" stroke="var(--border-subtle)" strokeWidth="1" />
+              <line x1="0" y1="60" x2="300" y2="60" stroke="var(--border-subtle)" strokeWidth="1" />
+              <line x1="0" y1="100" x2="300" y2="100" stroke="var(--border-subtle)" strokeWidth="1" />
 
               {/* Draw chart path */}
               <path
@@ -244,7 +243,9 @@ export const ChartCard: React.FC<{ data: ChartData }> = ({ data }) => {
                     return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
                   })
                   .join(' ')}
-                className="fill-none stroke-amber-400 stroke-2"
+                fill="none"
+                stroke="var(--accent-primary)"
+                strokeWidth="2"
               />
 
               {/* Draw dots */}
@@ -253,15 +254,15 @@ export const ChartCard: React.FC<{ data: ChartData }> = ({ data }) => {
                 const y = chartHeight - padding - (val / maxValue) * (chartHeight - 2 * padding);
                 return (
                   <g key={idx} className="group cursor-pointer">
-                    <circle cx={x} cy={y} r="4" className="fill-slate-950 stroke-amber-400 stroke-2" />
-                    <circle cx={x} cy={y} r="8" className="fill-amber-400/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <circle cx={x} cy={y} r="4" fill="var(--bg-app)" stroke="var(--accent-primary)" strokeWidth="2" />
+                    <circle cx={x} cy={y} r="8" fill="var(--accent-primary)" opacity="0.3" className="group-hover:opacity-100 transition-opacity" />
                   </g>
                 );
               })}
             </svg>
             <div className="flex justify-between mt-2 px-1">
               {data.labels.map((lbl, idx) => (
-                <span key={idx} className="text-[9px] text-slate-400">{lbl}</span>
+                <span key={idx} className="text-[9px] text-[var(--text-secondary)]">{lbl}</span>
               ))}
             </div>
           </div>
@@ -281,15 +282,15 @@ export interface KeyPointsData {
 export const KeyPointsList: React.FC<{ data: KeyPointsData }> = ({ data }) => {
   return (
     <div className="glass-panel-interactive p-6 space-y-4 animate-slide-up">
-      <div className="flex items-center gap-3 text-brand-400 border-b border-slate-800/80 pb-3">
+      <div className="flex items-center gap-3 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-3">
         <CheckCircle2 className="w-5 h-5" />
-        <h4 className="font-semibold text-lg text-slate-100">Key Points Summary</h4>
+        <h4 className="font-semibold text-lg text-[var(--text-primary)]">Key Points Summary</h4>
       </div>
 
       <ul className="space-y-3">
         {data.points.map((pt, idx) => (
-          <li key={idx} className="flex gap-3 text-slate-300 text-sm leading-relaxed group">
-            <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-brand-950/40 text-brand-400 group-hover:bg-brand-500/10 transition-colors">
+          <li key={idx} className="flex gap-3 text-[var(--text-primary)] text-sm leading-relaxed group">
+            <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-full bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] group-hover:scale-110 transition-transform">
               <ChevronRight className="w-3.5 h-3.5" />
             </span>
             {pt}
@@ -315,9 +316,9 @@ export interface ResourceData {
 export const ResourceList: React.FC<{ data: ResourceData }> = ({ data }) => {
   return (
     <div className="glass-panel-interactive p-6 space-y-4 animate-slide-up">
-      <div className="flex items-center gap-3 text-blue-400 border-b border-slate-800/80 pb-3">
+      <div className="flex items-center gap-3 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-3">
         <FileText className="w-5 h-5" />
-        <h4 className="font-semibold text-lg text-slate-100">Academic & External Resources</h4>
+        <h4 className="font-semibold text-lg text-[var(--text-primary)]">Academic & External Resources</h4>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -326,16 +327,16 @@ export const ResourceList: React.FC<{ data: ResourceData }> = ({ data }) => {
             key={idx}
             href="#"
             onClick={(e) => e.preventDefault()}
-            className="flex items-start gap-3 p-3 rounded-xl bg-slate-900 border border-slate-800/60 hover:border-blue-500/30 hover:bg-slate-800/40 transition-all group"
+            className="flex items-start gap-3 p-3 rounded-xl bg-[var(--glass-bg)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] hover:bg-[var(--glass-bg-hover)] transition-all group"
           >
-            <div className="p-2 rounded bg-blue-950/60 text-blue-400 group-hover:text-blue-300 transition-colors">
+            <div className="p-2 rounded bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] group-hover:scale-105 transition-transform">
               <FileText className="w-4 h-4" />
             </div>
             <div>
-              <h5 className="text-xs font-semibold text-slate-200 group-hover:text-slate-100 transition-colors truncate max-w-[180px]">
+              <h5 className="text-xs font-semibold text-[var(--text-primary)] group-hover:text-[var(--accent-primary)] transition-colors truncate max-w-[180px]">
                 {res.title}
               </h5>
-              <span className="text-[10px] text-slate-500 uppercase tracking-wider block mt-0.5">
+              <span className="text-[10px] text-[var(--text-secondary)] uppercase tracking-wider block mt-0.5 font-mono">
                 {res.type}
               </span>
             </div>
@@ -359,27 +360,27 @@ export const QuickQuestionCard: React.FC<{ data: QuickQuestionData }> = ({ data 
 
   return (
     <div className="glass-panel-interactive p-6 space-y-4 animate-slide-up">
-      <div className="flex items-center gap-3 text-purple-400 border-b border-slate-800/80 pb-3">
+      <div className="flex items-center gap-3 text-purple-400 border-b border-[var(--border-subtle)] pb-3">
         <HelpCircle className="w-5 h-5" />
-        <h4 className="font-semibold text-lg text-slate-100">Live Class Question</h4>
+        <h4 className="font-semibold text-lg text-[var(--text-primary)]">Live Class Question</h4>
       </div>
 
       <div className="space-y-3">
-        <p className="text-slate-200 text-sm font-medium leading-relaxed bg-slate-950/30 p-4 rounded-xl border border-slate-800/30">
+        <p className="text-[var(--text-primary)] text-sm font-medium leading-relaxed bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--border-subtle)]">
           "{data.question}"
         </p>
 
         <div className="flex flex-col items-center">
           <button
             onClick={() => setShowHint(!showHint)}
-            className="px-4 py-1.5 text-xs rounded-lg font-medium bg-slate-800 hover:bg-slate-700/80 border border-slate-700/60 text-slate-300 hover:text-slate-200 transition-colors flex items-center gap-1.5"
+            className="px-4 py-1.5 text-xs rounded-xl font-medium bg-[var(--glass-bg)] hover:bg-[var(--glass-bg-hover)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             {showHint ? "Hide Answer Hint" : "Show Expected Answer Hint"}
           </button>
 
           {showHint && (
-            <div className="mt-3 w-full bg-purple-950/20 border border-purple-500/20 p-4 rounded-xl text-xs text-purple-300 leading-relaxed animate-fade-in">
-              <span className="font-bold block mb-1">Expected Concept Hint:</span>
+            <div className="mt-3 w-full bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] p-4 rounded-xl text-xs text-[var(--text-primary)] leading-relaxed animate-fade-in">
+              <span className="font-bold block mb-1 text-[var(--accent-primary)]">Expected Concept Hint:</span>
               {data.expected_answer_hint}
             </div>
           )}
@@ -404,20 +405,20 @@ export interface PriorQuestionData {
 export const PreviousQuestionCard: React.FC<{ data: PriorQuestionData }> = ({ data }) => {
   return (
     <div className="glass-panel-interactive p-6 space-y-4 animate-slide-up">
-      <div className="flex items-center gap-3 text-slate-300 border-b border-slate-800/80 pb-3">
+      <div className="flex items-center gap-3 text-[var(--text-secondary)] border-b border-[var(--border-subtle)] pb-3">
         <History className="w-5 h-5" />
-        <h4 className="font-semibold text-lg text-slate-100">Previous Classroom History</h4>
+        <h4 className="font-semibold text-lg text-[var(--text-primary)]">Previous Classroom History</h4>
       </div>
 
-      <div className="relative border-l border-slate-800 pl-4 space-y-5 py-1">
+      <div className="relative border-l border-[var(--border-subtle)] pl-4 space-y-5 py-1">
         {data.prior_questions.map((pq, idx) => (
           <div key={idx} className="relative space-y-1">
-            <span className="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full bg-slate-800 border border-slate-600" />
+            <span className="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full bg-[var(--accent-primary)] border border-[var(--border-subtle)]" />
             <div className="flex justify-between items-baseline">
-              <h5 className="text-xs font-semibold text-slate-200 leading-relaxed max-w-[80%]">"{pq.question}"</h5>
-              <span className="text-[9px] text-slate-500">{pq.date}</span>
+              <h5 className="text-xs font-semibold text-[var(--text-primary)] leading-relaxed max-w-[80%]">"{pq.question}"</h5>
+              <span className="text-[9px] text-[var(--text-secondary)] font-mono">{pq.date}</span>
             </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed italic bg-slate-900/30 p-2 rounded-lg border border-slate-800/30">
+            <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed italic bg-[var(--card-bg)] p-2 rounded-lg border border-[var(--border-subtle)]">
               {pq.answer_summary}
             </p>
           </div>

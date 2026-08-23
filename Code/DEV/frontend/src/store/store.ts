@@ -46,7 +46,7 @@ export const useEduOSStore = create<EduOSStore>((set) => ({
   selectedSubject: null,
   selectedTopic: null,
   viewMode: 'teacher',
-  mockMode: true, // Default to true so that it works out of the box with zero API key config
+  mockMode: false, // Default to live API mode directly
   theme: getInitialTheme(),
   canvasModeActive: false,
 

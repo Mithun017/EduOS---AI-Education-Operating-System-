@@ -162,7 +162,7 @@ export const StudentAssistant: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-[var(--glass-bg)] rounded-2xl border border-[var(--border-subtle)] overflow-hidden shadow-2xl transition-all duration-300">
       {/* Header */}
-      <div className="bg-[var(--glass-bg)]/40 border-b border-[var(--border-subtle)] p-4 flex items-center justify-between">
+      <div className="bg-[var(--glass-bg)]/40 border-b border-[var(--border-subtle)] p-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[var(--accent-primary-soft)] flex items-center justify-center text-[var(--accent-primary)] font-extrabold border border-[var(--border-subtle)]">
             <GraduationCap className="w-5 h-5" />
@@ -213,14 +213,14 @@ export const StudentAssistant: React.FC = () => {
       ) : (
         <>
           {/* Chat scroll workspace */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-slate-950/20 to-slate-900/10">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[var(--glass-bg)]">
         {messages.map((msg) => (
           <div
             key={msg.id}
             className={`flex flex-col ${msg.sender === 'student' ? 'items-end' : 'items-start'} gap-1.5 animate-slide-up`}
           >
             {/* Sender tag */}
-            <span className="text-[9px] text-slate-500 font-medium px-1">
+            <span className="text-[9px] text-[var(--text-secondary)] font-medium px-1">
               {msg.sender === 'student' ? 'You' : 'Personal Tutor AI'}
             </span>
 
@@ -228,8 +228,8 @@ export const StudentAssistant: React.FC = () => {
             <div
               className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                 msg.sender === 'student'
-                  ? 'bg-teal-600 border border-teal-500 text-white rounded-tr-none'
-                  : 'bg-slate-900/80 border border-slate-800 text-slate-200 rounded-tl-none backdrop-blur-sm'
+                  ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] font-medium rounded-tr-none'
+                  : 'glass-panel text-[var(--text-primary)] rounded-tl-none'
               }`}
             >
               {msg.text.split('\n').map((line, i) => (
@@ -238,10 +238,10 @@ export const StudentAssistant: React.FC = () => {
 
               {/* level stamp for AI responses */}
               {msg.sender === 'tutor' && msg.level && (
-                <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[9px] text-slate-500 font-mono">
+                <div className="mt-2.5 pt-2 border-t border-[var(--border-subtle)] flex items-center justify-between text-[9px] text-[var(--text-secondary)] font-mono">
                   <span>Level: {msg.level}</span>
                   <span className="flex items-center gap-1">
-                    <Info className="w-3 h-3 text-teal-500/80" /> Institutional Grounded
+                    <Info className="w-3 h-3 text-[var(--accent-primary)]" /> Institutional Grounded
                   </span>
                 </div>
               )}
@@ -250,7 +250,7 @@ export const StudentAssistant: React.FC = () => {
         ))}
 
         {isLoading && (
-          <div className="flex items-center gap-2 p-3 bg-slate-900/60 border border-slate-800/60 rounded-xl text-teal-400 text-xs w-36 justify-center">
+          <div className="flex items-center gap-2 p-3 glass-panel-interactive text-[var(--accent-primary)] text-xs w-36 justify-center font-medium">
             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
             Analyzing & adapting...
           </div>
@@ -260,8 +260,8 @@ export const StudentAssistant: React.FC = () => {
 
       {/* Suggested next replies */}
       {currentTutorMessage && currentTutorMessage.suggestedActions && currentTutorMessage.suggestedActions.length > 0 && (
-        <div className="px-4 py-2.5 bg-slate-950/60 border-t border-slate-850/80">
-          <span className="text-[9px] text-slate-500 font-semibold uppercase tracking-wider block mb-1.5">
+        <div className="px-4 py-2.5 bg-[var(--glass-bg)] border-t border-[var(--border-subtle)]">
+          <span className="text-[9px] text-[var(--text-secondary)] font-semibold uppercase tracking-wider block mb-1.5">
             Suggested replies (low friction):
           </span>
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
@@ -270,7 +270,7 @@ export const StudentAssistant: React.FC = () => {
                 key={idx}
                 onClick={() => handleSend(action)}
                 disabled={isLoading}
-                className="flex-shrink-0 bg-slate-900 hover:bg-teal-950/20 hover:border-teal-500/40 border border-slate-800 text-slate-300 hover:text-teal-300 px-3 py-1.5 rounded-lg text-[10px] font-medium transition-all active:scale-95 disabled:opacity-50"
+                className="flex-shrink-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] px-3 py-1.5 rounded-xl text-[10px] font-medium transition-all hover:bg-[var(--accent-primary-soft)] active:scale-95 cursor-pointer disabled:opacity-50"
               >
                 {action}
               </button>
@@ -280,7 +280,7 @@ export const StudentAssistant: React.FC = () => {
       )}
 
       {/* Input container */}
-      <div className="p-3.5 bg-slate-950 border-t border-slate-850 flex items-center gap-2">
+      <div className="p-3.5 bg-[var(--glass-bg)] border-t border-[var(--border-subtle)] flex items-center gap-2">
         <input
           type="text"
           value={inputText}
@@ -288,12 +288,12 @@ export const StudentAssistant: React.FC = () => {
           onKeyDown={(e) => e.key === 'Enter' && handleSend(inputText)}
           placeholder="Ask a question privately... (e.g. explain like I'm a beginner)"
           disabled={isLoading}
-          className="flex-1 bg-slate-900 border border-slate-800/80 rounded-xl px-4 py-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-teal-500/60 focus:ring-1 focus:ring-teal-500/40 transition-all disabled:opacity-50"
+          className="flex-1 bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-xl px-4 py-3 text-xs text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent-primary)] transition-all disabled:opacity-50"
         />
         <button
           onClick={() => handleSend(inputText)}
           disabled={isLoading || !inputText.trim()}
-          className="p-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium shadow-md shadow-teal-950/40 active:scale-95 transition-all disabled:opacity-50"
+          className="p-3 rounded-xl bg-[var(--accent-primary)] hover:opacity-90 text-[var(--text-inverse)] font-bold shadow-md active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
         >
           <Send className="w-4 h-4" />
         </button>

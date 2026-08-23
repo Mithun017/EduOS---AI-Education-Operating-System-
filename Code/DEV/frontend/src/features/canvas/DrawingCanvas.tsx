@@ -45,7 +45,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const [isRecognizing, setIsRecognizing] = useState(false);
 
   // Auto-save debounce timer
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const saveTimerRef = useRef<any>(null);
 
   // 1. Fetch Canvas Session on mount/topic change
   useEffect(() => {
@@ -194,8 +194,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     }, 0);
 
     if (!isClosed && maxLineDeviation < 15) {
-      // Check if there is arrowhead flare (short backtrack or hook near the end)
-      const lastSegmentsAngle = Math.atan2(end.y - start.y, end.x - start.x);
       // Simplify check: if user ended with a directional flare, snap to arrow
       const flarePoints = rawPoints.slice(-4);
       let isArrow = false;
@@ -309,7 +307,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           type: recognized_as ? 'shape' : 'stroke',
           geometry_json: JSON.stringify(geometry),
           style_json: JSON.stringify({
-            color: document.documentElement.getAttribute('data-theme') === 'light' ? '#2563EB' : '#38BDF8',
+            color: document.documentElement.getAttribute('data-theme') === 'light' ? '#102542' : '#52DBFF',
             width: 3
           }),
           recognized_as: recognized_as,
@@ -458,7 +456,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   };
 
   return (
-    <div className="relative flex flex-col h-full bg-slate-950/20 backdrop-blur-md rounded-2xl border border-slate-900 overflow-hidden shadow-2xl">
+    <div className="relative flex flex-col h-full bg-[var(--glass-bg)] backdrop-blur-md rounded-2xl border border-[var(--border-subtle)] overflow-hidden shadow-2xl">
       {/* Top Floating Toolbar */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40">
         <ShapeToolbar
@@ -477,10 +475,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
       </div>
 
       {isRecognizing && (
-        <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center z-50">
-          <div className="flex items-center gap-3 px-6 py-3 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
-            <div className="w-5 h-5 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
-            <span className="text-sm font-semibold text-slate-200">Analyzing Handwriting...</span>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50">
+          <div className="flex items-center gap-3 px-6 py-3 bg-[var(--card-bg)] border border-[var(--border-subtle)] rounded-2xl shadow-xl">
+            <div className="w-5 h-5 rounded-full border-2 border-[var(--accent-primary)] border-t-transparent animate-spin" />
+            <span className="text-sm font-semibold text-[var(--text-primary)]">Analyzing Handwriting...</span>
           </div>
         </div>
       )}
@@ -491,7 +489,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        className="flex-1 w-full min-h-[400px] cursor-crosshair select-none bg-slate-900/10"
+        className="flex-1 w-full min-h-[400px] cursor-crosshair select-none bg-transparent"
         style={{ touchAction: 'none' }}
       >
         {/* Snapping Grid background */}
