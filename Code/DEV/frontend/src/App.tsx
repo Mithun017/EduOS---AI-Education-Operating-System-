@@ -11,8 +11,7 @@ import {
   Sun,
   Moon,
   PanelLeftClose,
-  PanelLeftOpen,
-  X
+  PanelLeftOpen
 } from 'lucide-react';
 
 function App() {
@@ -153,18 +152,6 @@ function App() {
             sidebarOpen ? 'w-72 opacity-100' : 'w-0 opacity-0 overflow-hidden pointer-events-none p-0 border-0'
           }`}
         >
-          {/* Sidebar Header */}
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] font-mono">Control Panel</span>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-              title="Close panel"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
           {/* Role Selector */}
           <div className="glass-panel p-3.5 space-y-2.5">
             <div className="flex items-center gap-2 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-1.5">
