@@ -392,14 +392,14 @@ async def generate_3d_knowledge_graph(
         ]
 
     import math as math_module
-    radius1 = 480
-    sub_offset = 280
+    radius1 = 340
+    sub_offset = 200
 
     for b_idx, b in enumerate(branches[:4]):
         b_id = f"t1-{b_idx}"
         angle = (b_idx * math_module.pi) / 2
         bx = radius1 * math_module.cos(angle)
-        by = (1 if b_idx % 2 == 0 else -1) * 140
+        by = (1 if b_idx % 2 == 0 else -1) * 80
         bz = radius1 * math_module.sin(angle)
 
         nodes.append({
@@ -419,7 +419,7 @@ async def generate_3d_knowledge_graph(
             s_id = f"t2-{b_idx}-{s_idx}"
             fan_angle = angle + ((s_idx - 1) * math_module.pi / 4)
             sx = bx + sub_offset * math_module.cos(fan_angle)
-            sy = by + ((s_idx - 1) * 120)
+            sy = by + ((s_idx - 1) * 75)
             sz = bz + sub_offset * math_module.sin(fan_angle)
 
             nodes.append({

@@ -167,14 +167,14 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
       const coreId = 'core-0';
       const fallbackNodes: Node3D[] = [
         { id: coreId, label: topicName, type: 'core', summary: `Core concept analysis for ${topicName}.`, x: 0, y: 0, z: 0, tier: 0 },
-        { id: 't1-0', label: `${topicName} Foundations`, type: 'branch', summary: `Foundational mathematical principles of ${topicName}.`, x: -480, y: 100, z: 240, tier: 1 },
-        { id: 't1-1', label: `Architectural Nodes`, type: 'branch', summary: `Structural components and transformations.`, x: 480, y: -120, z: -240, tier: 1 },
-        { id: 't1-2', label: `Mathematical Formulations`, type: 'math', summary: 'Derivative chain-rules & matrix operations.', x: 240, y: 440, z: -480, tier: 1 },
-        { id: 't1-3', label: `Real-World Deployment`, type: 'component', summary: 'Practical applications & production models.', x: -280, y: -440, z: 400, tier: 1 },
-        { id: 't2-0', label: 'Feature Map Normalization', type: 'math', summary: 'Standardizes vector scaling across layers.', x: -720, y: 240, z: 480, tier: 2 },
-        { id: 't2-1', label: 'Non-Linear Activations', type: 'math', summary: 'Applies threshold functions to embeddings.', x: 720, y: -320, z: 440, tier: 2 },
-        { id: 't2-2', label: 'Dimensionality Reduction', type: 'application', summary: 'Compresses spatial dimensions efficiently.', x: 560, y: 640, z: -640, tier: 2 },
-        { id: 't2-3', label: 'Gradient Loss Optimization', type: 'component', summary: 'Computes loss derivatives for weight updates.', x: -640, y: -600, z: -520, tier: 2 }
+        { id: 't1-0', label: `${topicName} Foundations`, type: 'branch', summary: `Foundational mathematical principles of ${topicName}.`, x: -340, y: 80, z: 180, tier: 1 },
+        { id: 't1-1', label: `Architectural Nodes`, type: 'branch', summary: `Structural components and transformations.`, x: 340, y: -80, z: -180, tier: 1 },
+        { id: 't1-2', label: `Mathematical Formulations`, type: 'math', summary: 'Derivative chain-rules & matrix operations.', x: 180, y: 300, z: -340, tier: 1 },
+        { id: 't1-3', label: `Real-World Deployment`, type: 'component', summary: 'Practical applications & production models.', x: -200, y: -300, z: 280, tier: 1 },
+        { id: 't2-0', label: 'Feature Map Normalization', type: 'math', summary: 'Standardizes vector scaling across layers.', x: -520, y: 165, z: 360, tier: 2 },
+        { id: 't2-1', label: 'Non-Linear Activations', type: 'math', summary: 'Applies threshold functions to embeddings.', x: 520, y: -220, z: 320, tier: 2 },
+        { id: 't2-2', label: 'Dimensionality Reduction', type: 'application', summary: 'Compresses spatial dimensions efficiently.', x: 420, y: 440, z: -460, tier: 2 },
+        { id: 't2-3', label: 'Gradient Loss Optimization', type: 'component', summary: 'Computes loss derivatives for weight updates.', x: -460, y: -420, z: -380, tier: 2 }
       ];
 
       const fallbackEdges: Edge3D[] = [
@@ -216,7 +216,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
 
     const render3DFrame = () => {
       if (autoRotate && !isDragging) {
-        localRotY += 0.005;
+        localRotY += 0.003;
         setRotY(localRotY);
       }
 
@@ -259,30 +259,6 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
           projZ: z2
         };
       });
-
-      // 2D Screen Space Collision Avoidance (Pushes overlapping card labels apart so cards NEVER collide)
-      for (let pass = 0; pass < 3; pass++) {
-        for (let i = 0; i < projectedNodes.length; i++) {
-          for (let j = i + 1; j < projectedNodes.length; j++) {
-            const n1 = projectedNodes[i];
-            const n2 = projectedNodes[j];
-            const dx = n2.projX - n1.projX;
-            const dy = n2.projY - n1.projY;
-            const minDistX = 120;
-            const minDistY = 32;
-
-            if (Math.abs(dx) < minDistX && Math.abs(dy) < minDistY) {
-              const overlapX = (minDistX - Math.abs(dx)) * 0.5 * (dx >= 0 ? 1 : -1);
-              const overlapY = (minDistY - Math.abs(dy)) * 0.5 * (dy >= 0 ? 1 : -1);
-
-              n1.projX -= overlapX;
-              n1.projY -= overlapY;
-              n2.projX += overlapX;
-              n2.projY += overlapY;
-            }
-          }
-        }
-      }
 
       // Sort nodes back-to-front (Painter's algorithm for Z-depth)
       projectedNodes.sort((a, b) => b.projZ - a.projZ);
