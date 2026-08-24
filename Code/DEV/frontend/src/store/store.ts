@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { AcademicSubject, AcademicTopic } from '../lib/api';
 
 export interface UserSession {
@@ -66,17 +67,19 @@ const getInitialTheme = (): 'light' | 'dark' => {
   return 'dark';
 };
 
-export const useEduOSStore = create<EduOSStore>((set) => ({
-  user: null,
-  teachers: [],
-  students: [],
-  subjects: [],
-  selectedSubject: null,
-  selectedTopic: null,
-  viewMode: 'teacher',
-  mockMode: false,
-  theme: getInitialTheme(),
-  canvasModeActive: true,
+export const useEduOSStore = create<EduOSStore>()(
+  persist(
+    (set) => ({
+      user: null,
+      teachers: [],
+      students: [],
+      subjects: [],
+      selectedSubject: null,
+      selectedTopic: null,
+      viewMode: 'teacher',
+      mockMode: false,
+      theme: getInitialTheme(),
+      canvasModeActive: true,
 
   setUser: (user) => set({ user }),
   setSubjects: (subjects) => {
@@ -264,4 +267,4 @@ export const useEduOSStore = create<EduOSStore>((set) => ({
       selectedTopic: state.selectedTopic?.id === topicId ? newSelectedTopic : state.selectedTopic
     };
   })
-}));
+}), { name: 'eduos-state-storage' }));

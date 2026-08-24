@@ -63,37 +63,54 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   // Auto-save debounce timer
   const saveTimerRef = useRef<any>(null);
 
-  // 1. Fetch Canvas Session on mount/topic change
+  // 1. Fetch Canvas Session on mount/topic change (with LocalStorage fallback for seamless F5 reloads)
   useEffect(() => {
-    if (!user || !selectedTopic) return;
+    const activeTopicId = selectedTopic?.id || 'dynamic-ai-scope';
+    const localSaved = localStorage.getItem(`eduos-canvas-${activeTopicId}`);
+
+    if (localSaved) {
+      try {
+        const parsed = JSON.parse(localSaved);
+        if (Array.isArray(parsed)) {
+          setObjects(parsed);
+          setHistory([parsed]);
+          setHistoryIndex(0);
+        }
+      } catch (e) {
+        console.warn("Failed to parse local canvas storage", e);
+      }
+    }
+
+    if (!user) return;
 
     const initSession = async () => {
       try {
         const session = await fetchCanvasSession(
           user.token,
-          selectedTopic.id,
+          activeTopicId,
           conversationId
         );
         setSessionId(session.id);
-        setObjects(session.objects);
-        setHistory([session.objects]);
-        setHistoryIndex(0);
+        if (session.objects && session.objects.length > 0) {
+          setObjects(session.objects);
+          setHistory([session.objects]);
+          setHistoryIndex(0);
+          localStorage.setItem(`eduos-canvas-${activeTopicId}`, JSON.stringify(session.objects));
+        }
       } catch (err) {
-        console.error("Failed to fetch/initialize canvas session:", err);
-        // Offline Fallback Session
-        const fallbackId = `fallback-session-${Date.now()}`;
-        setSessionId(fallbackId);
-        setObjects([]);
-        setHistory([[]]);
-        setHistoryIndex(0);
+        console.error("Failed to fetch backend canvas session:", err);
+        setSessionId(`session-${activeTopicId}`);
       }
     };
 
     initSession();
   }, [user, selectedTopic, conversationId]);
 
-  // 2. Auto-save objects to backend on changes
+  // 2. Auto-save objects to backend & LocalStorage on changes
   const triggerAutoSave = (updatedObjects: CanvasObject[]) => {
+    const activeTopicId = selectedTopic?.id || 'dynamic-ai-scope';
+    localStorage.setItem(`eduos-canvas-${activeTopicId}`, JSON.stringify(updatedObjects));
+
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
     }
@@ -106,7 +123,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
       } catch (err) {
         console.error("Auto-save canvas objects failed:", err);
       }
-    }, 1500); // 1.5 second debounce
+    }, 1000); // 1 second debounce
   };
 
   // Push new state to undo/redo history
