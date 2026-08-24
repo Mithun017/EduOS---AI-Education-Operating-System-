@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Bot, User, Sparkles } from 'lucide-react';
+import { HelpCircle, X, Send, Bot, User, Sparkles } from 'lucide-react';
 import { useEduOSStore } from '../../store/store';
 import { askTeacherHTTP, askStudentHTTP } from '../../lib/api';
 
@@ -97,17 +97,20 @@ export const FloatingChatWidget: React.FC = () => {
 
   return (
     <>
-      {/* Floating Action Button in Bottom Right */}
+      {/* Round Circular Floating Action Button in Bottom Right (Image 1 Reference) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 bg-[var(--accent-primary)] hover:opacity-90 text-[var(--text-inverse)] font-bold rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 cursor-pointer border border-white/20 group"
+        className="fixed bottom-6 right-6 z-50 w-13 h-13 rounded-full flex items-center justify-center bg-slate-900 text-white hover:bg-slate-800 shadow-2xl transition-all duration-300 transform hover:scale-110 active:scale-95 cursor-pointer border-2 border-slate-700/60 group"
         title="Open AI Chat Assistant"
       >
-        <div className="relative">
-          <MessageSquare className="w-5 h-5 transition-transform group-hover:rotate-12" />
-          <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full border-2 border-slate-900 animate-pulse" />
+        <div className="relative flex items-center justify-center">
+          {isOpen ? (
+            <X className="w-6 h-6 transition-transform group-hover:rotate-90" />
+          ) : (
+            <HelpCircle className="w-7 h-7 text-white stroke-[2.2] transition-transform group-hover:scale-110" />
+          )}
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-900 animate-pulse" />
         </div>
-        <span className="text-xs tracking-wide">AI Chat</span>
       </button>
 
       {/* Floating Chat Modal Box */}
