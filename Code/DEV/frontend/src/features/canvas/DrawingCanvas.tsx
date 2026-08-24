@@ -6,7 +6,7 @@ import { useEduOSStore } from '../../store/store';
 import { ShapeToolbar } from './ShapeToolbar';
 import { FormulaConfirmDialog } from './FormulaConfirmDialog';
 import { SecondBrainGraphModal } from './SecondBrainGraphModal';
-import { fetchCanvasSession, saveCanvasObjects, recognizeFormula, searchWebForSelection, visualizeConceptForSelection } from '../../lib/api';
+import { fetchCanvasSession, saveCanvasObjects, recognizeFormula } from '../../lib/api';
 import type { CanvasObject } from '../../lib/api';
 import { ChartCard } from '../teacher-assistant/ResponseRenderers';
 
@@ -30,8 +30,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const [history, setHistory] = useState<CanvasObject[][]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
-  // Active drawing state
+  // Active drawing state & customization options
   const [activeTool, setActiveTool] = useState<'pen' | 'eraser' | 'lasso' | 'select'>('pen');
+  const [canvasMode, setCanvasMode] = useState<'writing' | 'drawing'>('writing');
+  const [strokeColor, setStrokeColor] = useState<string>('#D6C8DF');
+  const [strokeWidth, setStrokeWidth] = useState<number>(4);
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [snapToGrid, setSnapToGrid] = useState(false);
@@ -352,19 +355,45 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     } else if (isDrawing) {
       setIsDrawing(false);
 
-      if (activeTool === 'pen' && currentPoints.length > 2) {
-        // Run heuristics shape snapping
-        const { recognized_as, geometry } = recognizeShape(currentPoints);
+    } else if (isDrawing) {
+      setIsDrawing(false);
+
+      if (activeTool === 'pen' && currentPoints.length > 1) {
+        let objectType: 'stroke' | 'shape' = 'stroke';
+        let geomData: any = currentPoints;
+        let shapeName: string | null = null;
+
+        if (canvasMode === 'drawing') {
+          // Drawing Mode: Smart Auto-Shape Recognition
+          const { recognized_as, geometry } = recognizeShape(currentPoints);
+          if (recognized_as) {
+            objectType = 'shape';
+            geomData = geometry;
+            shapeName = recognized_as;
+          } else {
+            // Default in Drawing mode: snap straight line connecting start and end
+            const start = currentPoints[0];
+            const end = currentPoints[currentPoints.length - 1];
+            objectType = 'shape';
+            geomData = { x1: start.x, y1: start.y, x2: end.x, y2: end.y };
+            shapeName = 'line';
+          }
+        } else {
+          // Writing Mode: Preserve exact raw freehand stroke
+          objectType = 'stroke';
+          geomData = currentPoints;
+          shapeName = null;
+        }
 
         const newObj: CanvasObject = {
           id: `obj-${crypto.randomUUID()}`,
-          type: recognized_as ? 'shape' : 'stroke',
-          geometry_json: JSON.stringify(geometry),
+          type: objectType,
+          geometry_json: JSON.stringify(geomData),
           style_json: JSON.stringify({
-            color: document.documentElement.getAttribute('data-theme') === 'light' ? '#102542' : '#D6C8DF',
-            width: 3
+            color: strokeColor,
+            width: strokeWidth
           }),
-          recognized_as: recognized_as,
+          recognized_as: shapeName,
           order_index: objects.length
         };
 
@@ -450,106 +479,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     }
   };
 
-  const handleWebSearch = async () => {
-    setIsRecognizing(true);
-    try {
-      // Find handwritten strokes: selected strokes if any, or all strokes on canvas
-      const strokeObjects = selectedObjectIds.size > 0
-        ? objects.filter(obj => selectedObjectIds.has(obj.id))
-        : objects.filter(obj => obj.type === 'stroke' || obj.type === 'shape');
-
-      let queryTopic = selectedTopic?.name || "Artificial Intelligence";
-
-      if (strokeObjects.length > 0) {
-        try {
-          // Vision OCR to transcribe handwriting into text
-          const ocrResult = await recognizeFormula(
-            user?.token || "",
-            sessionId || "",
-            JSON.stringify(strokeObjects)
-          );
-          if (ocrResult && ocrResult.formula_text && ocrResult.formula_text.trim()) {
-            queryTopic = ocrResult.formula_text.trim();
-          }
-        } catch (ocrErr) {
-          console.warn("OCR recognition fallback for handwriting strokes.", ocrErr);
-        }
-      }
-
-      const data = await searchWebForSelection(user?.token || '', queryTopic);
-
-      const newCardObj: CanvasObject = {
-        id: `obj-${crypto.randomUUID()}`,
-        type: 'formula',
-        geometry_json: JSON.stringify({
-          card_type: 'web_search',
-          title: data.title || `OCR Web Search: ${queryTopic}`,
-          query: queryTopic,
-          summary: data.summary || `Real-time web search results and grounded AI analysis for '${queryTopic}'.`,
-          key_points: data.key_points || [
-            `Recognized Handwriting Query: "${queryTopic}"`,
-            `Grounded AI Synthesis: Analyzed top web sources.`,
-            `Key Takeaways: Structured research notes & live references.`
-          ],
-          sources: data.sources || [
-            { title: "Authoritative Reference", url: "https://wikipedia.org" }
-          ],
-          x: 120,
-          y: 60,
-          w: 560,
-          h: 400
-        }),
-        order_index: objects.length
-      };
-
-      // Clear recognized handwritten strokes so canvas stays clean with floating research card
-      const remainingObjects = strokeObjects.length > 0
-        ? objects.filter(obj => !strokeObjects.some(s => s.id === obj.id))
-        : objects;
-
-      pushToHistory([...remainingObjects, newCardObj]);
-      setSelectedObjectIds(new Set());
-    } catch (err) {
-      console.error("OCR Web search failed:", err);
-    } finally {
-      setIsRecognizing(false);
-    }
-  };
-
-  const handleVisualize = async () => {
-    if (selectedObjectIds.size === 0) return;
-    setIsRecognizing(true);
-    try {
-      const queryTopic = selectedTopic?.name || "Convolutional Neural Networks";
-      const data = await visualizeConceptForSelection(user?.token || '', queryTopic);
-
-      const newCardObj: CanvasObject = {
-        id: `obj-${crypto.randomUUID()}`,
-        type: 'formula',
-        geometry_json: JSON.stringify({
-          card_type: 'visualizer',
-          concept_title: data.concept_title || queryTopic,
-          definition: data.definition,
-          real_world_analogy: data.real_world_analogy,
-          components: data.components || [],
-          x: 140,
-          y: 70,
-          w: 540,
-          h: 380
-        }),
-        order_index: objects.length
-      };
-
-      const remaining = objects.filter(obj => !selectedObjectIds.has(obj.id));
-      pushToHistory([...remaining, newCardObj]);
-      setSelectedObjectIds(new Set());
-    } catch (err) {
-      console.error("Concept visualization failed:", err);
-    } finally {
-      setIsRecognizing(false);
-    }
-  };
-
   // 5. Plot Graph Flow (evaluates confirm-then-plot expressions client-side)
   const handleConfirmFormula = (finalFormula: string) => {
     setIsConfirmOpen(false);
@@ -616,6 +545,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         <ShapeToolbar
           activeTool={activeTool}
           setActiveTool={setActiveTool}
+          canvasMode={canvasMode}
+          setCanvasMode={setCanvasMode}
+          strokeColor={strokeColor}
+          setStrokeColor={setStrokeColor}
+          strokeWidth={strokeWidth}
+          setStrokeWidth={setStrokeWidth}
           snapToGrid={snapToGrid}
           setSnapToGrid={setSnapToGrid}
           canUndo={historyIndex > 0}
@@ -624,10 +559,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           onRedo={handleRedo}
           onClear={handleClear}
           onRecognize={handleRecognizeFormula}
-          onWebSearch={handleWebSearch}
-          onVisualize={handleVisualize}
           hasSelection={selectedObjectIds.size > 0}
-          onOpenGraphicalView={() => setIsGraphicalViewOpen(true)}
         />
       </div>
 
@@ -959,11 +891,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             d={getSvgPathFromStroke(
               getStroke(
                 currentPoints.map(p => [p.x, p.y]),
-                { size: 3, thinning: 0.5, smoothing: 0.5, streamline: 0.5 }
+                { size: strokeWidth, thinning: 0.5, smoothing: 0.5, streamline: 0.5 }
               )
             )}
-            fill={document.documentElement.getAttribute('data-theme') === 'light' ? '#2563EB' : '#38BDF8'}
-            opacity={0.8}
+            fill={strokeColor}
+            opacity={strokeWidth > 15 ? 0.5 : 0.9}
           />
         )}
 
