@@ -572,7 +572,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
             />
           </div>
 
-          {/* Action & Camera Controls */}
+          {/* Action Controls */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => generateGraphForTopic(topicInput)}
@@ -591,55 +591,6 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
                 </>
               )}
             </button>
-
-            {modalView === 'graph' && (
-              <>
-                <div className="h-5 w-[1px] bg-[var(--border-subtle)] mx-1" />
-
-                {/* Auto Rotate Toggle */}
-                <button
-                  onClick={() => setAutoRotate(!autoRotate)}
-                  className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
-                    autoRotate
-                      ? 'bg-[var(--accent-primary-soft)] border-[var(--accent-primary)] text-[var(--accent-primary)]'
-                      : 'bg-[var(--glass-bg)] border-[var(--border-subtle)] text-[var(--text-secondary)]'
-                  }`}
-                  title={autoRotate ? "Pause 3D Auto-Rotation" : "Start 3D Auto-Rotation"}
-                >
-                  {autoRotate ? <Pause size={15} /> : <Play size={15} />}
-                </button>
-
-                {/* Reset Camera */}
-                <button
-                  onClick={() => {
-                    setRotX(0.2);
-                    setRotY(0.4);
-                    setZoomLevel(1.0);
-                  }}
-                  className="p-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] transition-all cursor-pointer"
-                  title="Reset 3D View"
-                >
-                  <RotateCcw size={15} />
-                </button>
-
-                {/* Zoom Controls */}
-                <button
-                  onClick={() => setZoomLevel((z) => Math.min(2.0, z + 0.15))}
-                  className="p-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
-                  title="Zoom In 3D Space"
-                >
-                  <ZoomIn size={15} />
-                </button>
-
-                <button
-                  onClick={() => setZoomLevel((z) => Math.max(0.5, z - 0.15))}
-                  className="p-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
-                  title="Zoom Out 3D Space"
-                >
-                  <ZoomOut size={15} />
-                </button>
-              </>
-            )}
           </div>
         </div>
 
