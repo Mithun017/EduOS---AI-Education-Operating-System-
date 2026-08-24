@@ -54,24 +54,19 @@ interface EduOSStore {
 
 const defaultSubjects: AcademicSubject[] = [
   {
-    id: "subj-dl-001",
-    name: "Deep Learning & Neural Networks",
-    code: "CS601DL",
+    id: "subj-001",
+    name: "Foundational Academic Course",
+    code: "EDU101",
     units: [
       {
-        id: "unit-3-001",
-        name: "Computer Vision & Spatial Networks",
-        unit_number: 3,
+        id: "unit-001",
+        name: "Unit 1: Core Principles",
+        unit_number: 1,
         topics: [
           {
-            id: "topic-cnn-001",
-            name: "Convolutional Neural Networks (CNN)",
-            description: "Architecture, kernels, feature maps, pooling layers, and image classification."
-          },
-          {
-            id: "topic-rnn-002",
-            name: "Recurrent Neural Networks (RNN)",
-            description: "Sequential data, LSTM cells, GRU units, and language models."
+            id: "topic-core-001",
+            name: "Core Academic Principles",
+            description: "Introduction to foundational concepts, research methodology, and applications."
           }
         ]
       }
@@ -80,13 +75,11 @@ const defaultSubjects: AcademicSubject[] = [
 ];
 
 const defaultTeachers: TeacherProfile[] = [
-  { id: 't-1', name: 'Prof. Sarah Jenkins', employeeId: 'FAC-102' },
-  { id: 't-2', name: 'Dr. Alan Turing', employeeId: 'FAC-201' }
+  { id: 't-1', name: 'Course Instructor', employeeId: 'FAC-001' }
 ];
 
 const defaultStudents: StudentProfile[] = [
-  { id: 's-1', name: 'Alex Chen', rollNumber: '21CS045' },
-  { id: 's-2', name: 'Maya Patel', rollNumber: '21CS089' }
+  { id: 's-1', name: 'Enrolled Student', rollNumber: 'STU-001' }
 ];
 
 const getInitialTheme = (): 'light' | 'dark' => {

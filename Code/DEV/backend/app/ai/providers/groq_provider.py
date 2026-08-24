@@ -31,7 +31,7 @@ class GroqProvider:
         for msg in request.messages:
             formatted_messages.append({"role": msg.role, "content": msg.content})
 
-        model_name = "llama-3.1-70b-versatile"
+        model_name = "llama-3.3-70b-versatile"
 
         response_stream = await self._client.chat.completions.create(
             model=model_name,

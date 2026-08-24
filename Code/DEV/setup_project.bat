@@ -1,4 +1,5 @@
 @echo off
+cd /d "%~dp0"
 title EduOS Project Setup
 echo ==========================================
 echo       🎓 EduOS Prototype Setup 🎓
@@ -31,11 +32,11 @@ echo.
 
 :: Configure Backend environment
 echo [3/5] Setting up Backend environment...
-cd backend
+cd /d "%~dp0backend"
 if not exist .env (
-    if exist ..\.env.example (
+    if exist "%~dp0.env.example" (
         echo Copying .env from template...
-        copy ..\.env.example .env
+        copy "%~dp0.env.example" .env
     ) else (
         echo Creating a default .env file...
         echo NVIDIA_NIM_API_KEY=> .env
@@ -68,15 +69,15 @@ call venv\Scripts\pip install -r requirements.txt
 
 echo Seeding database...
 call venv\Scripts\python -m app.db.seed
-cd ..
+cd /d "%~dp0"
 echo.
 
 :: Configure Frontend environment
 echo [4/5] Setting up Frontend environment...
-cd frontend
+cd /d "%~dp0frontend"
 echo Installing frontend dependencies (npm install)...
 call npm install
-cd ..
+cd /d "%~dp0"
 echo.
 
 echo [5/5] Setup Completed Successfully!

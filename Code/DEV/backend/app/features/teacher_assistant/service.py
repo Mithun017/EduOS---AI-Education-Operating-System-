@@ -77,8 +77,8 @@ class TeacherAssistantService:
         # 2. Classify response type
         response_type = await self.classify_teacher_intent(req.message)
 
-        # 3. Formulate structured response
-        structured_data = self._generate_structured_mock_payload(response_type, req.message, grounded_context)
+        # 3. Formulate dynamic AI structured response
+        structured_data = await self._generate_structured_payload(response_type, req.message, grounded_context, req.topic_id, institution_id)
 
         # 4. Generate AI summary prose via orchestrator
         system_prompt = (
@@ -101,8 +101,8 @@ class TeacherAssistantService:
                 if chunk.provider_name:
                     provider_used = chunk.provider_name
         except Exception as e:
-            logger.warning(f"AI Orchestrator generation fallback to grounded response: {e}")
-            full_prose = f"Teacher Assistant summary for '{req.message}'. Grounded context applied."
+            logger.warning(f"AI Orchestrator generation fallback: {e}")
+            full_prose = f"Teacher Assistant response for '{req.message}'. Grounded context applied."
 
         # 5. Persist Conversation & Message
         conv = Conversation(
@@ -137,20 +137,79 @@ class TeacherAssistantService:
             "structured_data": structured_data
         }
 
-    def _generate_structured_mock_payload(self, rtype: TriggerResponseType, msg: str, grounded: str) -> Dict[str, Any]:
+    async def _generate_structured_payload(
+        self,
+        rtype: TriggerResponseType,
+        msg: str,
+        grounded: str,
+        topic_id: str,
+        institution_id: str
+    ) -> Dict[str, Any]:
+        """Generate dynamic structured JSON payload using LLM provider via AIOrchestrator."""
+        schema_instructions = {
+            TriggerResponseType.EXPLANATION: '{"summary": "...", "real_world_example": "...", "key_points": ["...", "..."]}',
+            TriggerResponseType.ROADMAP: '{"nodes": [{"id": "n1", "label": "...", "order": 1}], "edges": [{"from": "n1", "to": "n2"}]}',
+            TriggerResponseType.CHART: '{"chart_type": "bar", "labels": ["...", "..."], "series": [{"name": "...", "data": [10, 20]}]}',
+            TriggerResponseType.KEY_POINTS: '{"points": ["...", "...", "..."]}',
+            TriggerResponseType.RESOURCES: '{"resources": [{"title": "...", "type": "notes", "url_or_ref": "..."}]}',
+            TriggerResponseType.PREVIOUS_QUESTION_CONTEXT: '{"prior_questions": [{"question": "...", "answer_summary": "...", "date": "..."}]}',
+            TriggerResponseType.QUICK_QUESTION: '{"question": "...", "expected_answer_hint": "..."}'
+        }
+
+        target_schema = schema_instructions.get(rtype, '{"summary": "..."}')
+        prompt = (
+            f"You are a structured educational JSON generator. Return ONLY valid JSON matching this schema: {target_schema}.\n"
+            f"Topic: {topic_id}\n"
+            f"Teacher Query: {msg}\n"
+            f"Context: {grounded[:300] if grounded else 'General educational context'}\n"
+            f"Respond with JSON ONLY. Do not include markdown code block syntax if possible."
+        )
+
+        ai_req = AIRequest(
+            messages=[AIMessage(role="user", content=prompt)],
+            system_prompt="Respond strictly with JSON.",
+            institution_id=institution_id,
+            max_tokens=400,
+            temperature=0.2
+        )
+
+        raw_json_str = ""
+        try:
+            async for chunk in self.orchestrator.generate_stream(ai_req):
+                if chunk.text:
+                    raw_json_str += chunk.text
+            
+            # Clean markdown formatting if returned
+            clean_str = raw_json_str.strip()
+            if clean_str.startswith("```json"):
+                clean_str = clean_str[7:]
+            if clean_str.startswith("```"):
+                clean_str = clean_str[3:]
+            if clean_str.endswith("```"):
+                clean_str = clean_str[:-3]
+            clean_str = clean_str.strip()
+
+            parsed = json.loads(clean_str)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception as e:
+            logger.warning(f"AI JSON payload generation fallback: {e}")
+
+        # Dynamic fallback building based on topic & message (no hardcoded CNN strings)
+        topic_title = topic_id.replace("topic-", "").replace("-", " ").title()
         if rtype == TriggerResponseType.EXPLANATION:
             return {
-                "summary": grounded[:200] if grounded else "CNN uses sliding filter kernels to extract visual features.",
-                "real_world_example": "Like scanning a photo through a small magnifying lens to spot edges first, then faces.",
-                "key_points": ["Convolutional Layer", "ReLU Activation", "Pooling Layer", "Fully Connected Layer"]
+                "summary": grounded[:200] if grounded else f"Core principles and key mechanisms of {msg} in {topic_title}.",
+                "real_world_example": f"Applying {msg} to solve practical real-world challenges in {topic_title}.",
+                "key_points": [f"{msg} Overview", "Fundamental Concepts", "Practical Applications", "Key Takeaways"]
             }
         elif rtype == TriggerResponseType.ROADMAP:
             return {
                 "nodes": [
-                    {"id": "n1", "label": "1. Input Image", "order": 1},
-                    {"id": "n2", "label": "2. Feature Extraction (Convolution+ReLU)", "order": 2},
-                    {"id": "n3", "label": "3. Pooling / Downsampling", "order": 3},
-                    {"id": "n4", "label": "4. Classification (Dense+Softmax)", "order": 4}
+                    {"id": "n1", "label": f"1. Prerequisites for {topic_title}", "order": 1},
+                    {"id": "n2", "label": f"2. Core Concept: {msg}", "order": 2},
+                    {"id": "n3", "label": f"3. Advanced Methods in {topic_title}", "order": 3},
+                    {"id": "n4", "label": f"4. Practical Case Study", "order": 4}
                 ],
                 "edges": [
                     {"from": "n1", "to": "n2"},
@@ -161,33 +220,34 @@ class TeacherAssistantService:
         elif rtype == TriggerResponseType.CHART:
             return {
                 "chart_type": "bar",
-                "labels": ["Layer 1 (Conv)", "Layer 2 (Pool)", "Layer 3 (Conv)", "FC Layer"],
-                "series": [{"name": "Feature Dimension", "data": [64, 32, 128, 10]}]
+                "labels": ["Phase 1", "Phase 2", "Phase 3", "Phase 4"],
+                "series": [{"name": f"{topic_title} Metric", "data": [25, 45, 70, 95]}]
             }
         elif rtype == TriggerResponseType.KEY_POINTS:
             return {
                 "points": [
-                    "Kernels slide across spatial input dimensions.",
-                    "Shared weights reduce parameters compared to fully connected networks.",
-                    "Max pooling retains prominent activation values while lowering resolution."
+                    f"Understanding the baseline principles of {topic_title}.",
+                    f"Key operational aspects of {msg}.",
+                    f"Best practices and evaluation metrics for {topic_title}."
                 ]
             }
         elif rtype == TriggerResponseType.RESOURCES:
             return {
                 "resources": [
-                    {"title": "CNN Architecture Notes", "type": "pdf", "url_or_ref": "demo-inst-001/res-001/notes.pdf"},
-                    {"title": "Visualizing Convolutions Video", "type": "youtube", "url_or_ref": "https://youtube.com/watch?v=demo"}
+                    {"title": f"{topic_title} Lecture Notes", "type": "pdf", "url_or_ref": f"{institution_id}/notes.pdf"},
+                    {"title": f"Understanding {msg} Video", "type": "video", "url_or_ref": "https://education.portal/resource"}
                 ]
             }
         elif rtype == TriggerResponseType.PREVIOUS_QUESTION_CONTEXT:
             return {
                 "prior_questions": [
-                    {"question": "What is stride in CNN?", "answer_summary": "Step size of filter sliding.", "date": "2026-08-15"}
+                    {"question": f"How is {msg} defined?", "answer_summary": f"Standard concept definition for {topic_title}.", "date": "Recent"}
                 ]
             }
         elif rtype == TriggerResponseType.QUICK_QUESTION:
             return {
-                "question": "What is the primary function of a Pooling layer in a CNN?",
-                "expected_answer_hint": "To downsample feature maps and reduce spatial dimensions while preserving key features."
+                "question": f"What is the key objective of {msg} within {topic_title}?",
+                "expected_answer_hint": f"Look for core mechanism and outcome related to {msg}."
             }
-        return {"summary": "Default structured payload"}
+        return {"summary": f"Overview of {msg} for {topic_title}."}
+

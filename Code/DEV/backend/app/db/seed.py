@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from app.db.session import AsyncSessionLocal, engine
 from app.db.models import (
     Base, Institution, Department, Program, Semester, Subject, Unit, Topic, Resource, KnowledgeChunk, User, UserRole
@@ -11,14 +12,22 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 async def seed_data():
-    async with engine.begin() as conn:
-        # Create vector extension if postgres, create tables
-        try:
+    local_engine = engine
+    try:
+        async with local_engine.begin() as conn:
+            if local_engine.dialect.name == "postgresql":
+                from sqlalchemy import text
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
             await conn.run_sync(Base.metadata.create_all)
-        except Exception as e:
-            logger.warning(f"Metadata create_all notice: {e}")
+    except Exception as e:
+        logger.warning(f"PostgreSQL pgvector notice: {e}. Falling back to SQLite local dev database.")
+        from sqlalchemy.ext.asyncio import create_async_engine
+        local_engine = create_async_engine("sqlite+aiosqlite:///./eduos.db", echo=False)
+        async with local_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
-    async with AsyncSessionLocal() as session:
+    session_factory = async_sessionmaker(bind=local_engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
         # Check if demo institution already exists
         result = await session.execute(select(Institution).where(Institution.id == "demo-inst-001"))
         existing_inst = result.scalar_one_or_none()
@@ -53,7 +62,7 @@ async def seed_data():
             institution_id=inst.id,
             email="teacher@demo.eduos.ai",
             hashed_password=password_hash,
-            full_name="Prof. Sarah Jenkins",
+            full_name="Course Instructor",
             role=UserRole.TEACHER
         )
 
@@ -62,7 +71,7 @@ async def seed_data():
             institution_id=inst.id,
             email="student@demo.eduos.ai",
             hashed_password=password_hash,
-            full_name="Alex Chen",
+            full_name="Enrolled Student",
             role=UserRole.STUDENT
         )
 
@@ -72,7 +81,7 @@ async def seed_data():
         dept = Department(
             id="dept-cs-001",
             institution_id=inst.id,
-            name="Computer Science & Engineering"
+            name="General Academic Department"
         )
         session.add(dept)
 
@@ -80,7 +89,7 @@ async def seed_data():
             id="prog-ai-001",
             institution_id=inst.id,
             department_id=dept.id,
-            name="B.Tech Artificial Intelligence"
+            name="Academic Program"
         )
         session.add(prog)
 
@@ -88,34 +97,34 @@ async def seed_data():
             id="sem-6-001",
             institution_id=inst.id,
             program_id=prog.id,
-            number=6
+            number=1
         )
         session.add(sem)
 
         subject = Subject(
-            id="subj-dl-001",
+            id="subj-001",
             institution_id=inst.id,
             semester_id=sem.id,
-            name="Deep Learning & Neural Networks",
-            code="CS601DL"
+            name="Foundational Academic Course",
+            code="EDU101"
         )
         session.add(subject)
 
         unit = Unit(
-            id="unit-3-001",
+            id="unit-001",
             institution_id=inst.id,
             subject_id=subject.id,
-            unit_number=3,
-            name="Computer Vision & Spatial Networks"
+            unit_number=1,
+            name="Unit 1: Core Principles"
         )
         session.add(unit)
 
         topic = Topic(
-            id="topic-cnn-001",
+            id="topic-core-001",
             institution_id=inst.id,
             unit_id=unit.id,
-            name="Convolutional Neural Networks (CNN)",
-            description="Architecture, kernels, feature maps, pooling layers, and image classification."
+            name="Core Academic Principles",
+            description="Foundational principles, methodologies, and practical applications."
         )
         session.add(topic)
 

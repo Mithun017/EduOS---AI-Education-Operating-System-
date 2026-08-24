@@ -8,6 +8,21 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, relationship, Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
 
+from sqlalchemy.types import TypeDecorator
+
+class SafeVector(TypeDecorator):
+    impl = Text
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            try:
+                from pgvector.sqlalchemy import Vector
+                return dialect.type_descriptor(Vector(1536))
+            except Exception:
+                return dialect.type_descriptor(Text)
+        return dialect.type_descriptor(Text)
+
 class Base(DeclarativeBase):
     pass
 
@@ -130,7 +145,7 @@ class KnowledgeChunk(Base):
     topic_id: Mapped[str] = mapped_column(String, ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, index=True)
     source_resource_id: Mapped[Optional[str]] = mapped_column(String, ForeignKey("resources.id", ondelete="SET NULL"), nullable=True, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding = mapped_column(Vector(1536), nullable=True) # OpenAI / standard 1536 dim embeddings
+    embedding = mapped_column(SafeVector, nullable=True) # OpenAI / standard 1536 dim embeddings
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     topic: Mapped["Topic"] = relationship("Topic", back_populates="chunks")

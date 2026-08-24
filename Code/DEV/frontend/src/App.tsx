@@ -43,10 +43,10 @@ function App() {
   const [authLoading, setAuthLoading] = useState(false);
 
   // Identity Form State
-  const [teacherName, setTeacherName] = useState('Prof. Sarah Jenkins');
-  const [teacherId, setTeacherId] = useState('FAC-102');
-  const [studentName, setStudentName] = useState('Alex Chen');
-  const [rollNumber, setRollNumber] = useState('21CS045');
+  const [teacherName, setTeacherName] = useState('Course Instructor');
+  const [teacherId, setTeacherId] = useState('FAC-001');
+  const [studentName, setStudentName] = useState('Enrolled Student');
+  const [rollNumber, setRollNumber] = useState('STU-001');
 
   // Creation Toggle Forms
   const [showAddTeacher, setShowAddTeacher] = useState(false);

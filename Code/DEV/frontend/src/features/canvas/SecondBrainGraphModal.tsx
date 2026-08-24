@@ -66,10 +66,10 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
       // Query real AI engine for concept breakdown
       const promptText = `Provide detailed knowledge breakdown for topic "${topicName}".`;
       const response = await askTeacherHTTP(
-        promptText,
-        'hybrid',
         user?.token || '',
-        user?.institutionId || 'demo-inst-001'
+        selectedTopic?.id || 'topic-cnn-001',
+        promptText,
+        'hybrid'
       );
 
       const coreId = 'core-0';

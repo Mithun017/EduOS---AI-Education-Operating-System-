@@ -131,12 +131,14 @@ class StudentAssistantService:
         grounded_context = "\n".join([c["content"] for c in chunks]) if grounded else ""
         sources = [{"chunk_id": c["chunk_id"], "source_resource_id": c["source_resource_id"]} for c in chunks] if grounded else []
 
-        # 5. Generate Adaptive Content
-        content, suggested_actions = self._generate_adaptive_response(
+        # 5. Generate AI Adaptive Content
+        content, suggested_actions, provider_used = await self._generate_adaptive_response(
             level=new_level,
             rtype=response_type,
             grounded_context=grounded_context,
-            topic_id=req.topic_id
+            topic_id=req.topic_id,
+            msg=req.message,
+            institution_id=institution_id
         )
 
         # 6. Save message
@@ -146,7 +148,7 @@ class StudentAssistantService:
             sender="assistant",
             content=content,
             response_mode=ResponseMode.INSTITUTION_GROUNDED if grounded else ResponseMode.GENERAL,
-            provider_used="nvidia_nim"
+            provider_used=provider_used
         )
         self.session.add(msg)
         await self.session.commit()
@@ -161,54 +163,114 @@ class StudentAssistantService:
             "suggested_next_actions": suggested_actions
         }
 
-    def _generate_adaptive_response(self, level: str, rtype: str, grounded_context: str, topic_id: str) -> tuple[str, List[str]]:
+    async def _generate_adaptive_response(
+        self,
+        level: str,
+        rtype: str,
+        grounded_context: str,
+        topic_id: str,
+        msg: str,
+        institution_id: str
+    ) -> tuple[str, List[str], str]:
+        """Generate dynamic adaptive learning content using LLM provider via AIOrchestrator."""
+        topic_title = topic_id.replace("topic-", "").replace("-", " ").title()
+
+        prompt = (
+            f"You are EduOS Private Adaptive Tutor. The student is asking about '{msg}' in topic '{topic_title}'.\n"
+            f"Understanding Level: {level.upper()}.\n"
+            f"Response Type: {rtype.upper()}.\n"
+            f"Grounding Material: {grounded_context[:400] if grounded_context else 'General curriculum context'}.\n\n"
+            f"Instructions based on level/type:\n"
+        )
+
+        if rtype == "practice_question":
+            prompt += f"- Generate a difficulty-matched practice question at {level} level with a subtle hint. Do not reveal the full answer immediately."
+        elif rtype == "example":
+            prompt += f"- Provide a clear, concrete worked example at {level} level illustrating '{msg}'."
+        elif level == "technical":
+            prompt += "- Provide a standard, mathematically/technically rigorous explanation using precise terminology."
+        elif level == "simplified":
+            prompt += "- Explain with reduced jargon, clearer breakdown, and intuitive concept steps."
+        elif level == "beginner":
+            prompt += "- Explain using plain everyday language, zero heavy jargon, and clear foundational concepts."
+        else: # analogy
+            prompt += "- Explain using a creative, vivid real-world analogy."
+
+        ai_req = AIRequest(
+            messages=[AIMessage(role="user", content=msg)],
+            system_prompt=prompt,
+            institution_id=institution_id,
+            max_tokens=500
+        )
+
+        generated_text = ""
+        provider_used = "nvidia_nim"
+        try:
+            async for chunk in self.orchestrator.generate_stream(ai_req):
+                if chunk.text:
+                    generated_text += chunk.text
+                if chunk.provider_name:
+                    provider_used = chunk.provider_name
+        except Exception as e:
+            logger.warning(f"AI Student generation fallback: {e}")
+
+        # Determine suggested next actions dynamically based on level
+        if rtype == "practice_question":
+            actions = ["Explain the answer", "Give me another question", "Explain simpler"]
+        elif rtype == "example":
+            actions = ["Give me a practice question", "Explain simpler", "Go back to standard"]
+        elif level == "technical":
+            actions = ["I don't understand", "Give me an example", "Give me a practice question"]
+        elif level == "simplified":
+            actions = ["Still not understanding", "Give me an example", "Practice question"]
+        elif level == "beginner":
+            actions = ["Give me an analogy", "Give me an example", "Go back to normal"]
+        else:
+            actions = ["Give me an example", "Practice question", "Reset to normal"]
+
+        if generated_text.strip():
+            # Formatting header depending on level/type
+            level_label = rtype.replace("_", " ").capitalize() if rtype in ["practice_question", "example"] else f"{level.capitalize()} Explanation"
+            formatted_content = f"**{level_label}**:\n{generated_text.strip()}"
+            return (formatted_content, actions, provider_used)
+
+        # Dynamic fallback when AI Orchestrator is unconfigured/offline
         if rtype == "practice_question":
             content = (
                 f"**Practice Question ({level.capitalize()} Level)**:\n"
-                f"How does a Convolutional Layer differ from a standard Fully Connected layer when processing spatial image features?\n\n"
-                f"*Hint: Think about local sliding kernels vs overall matrix multiplication.*"
+                f"How would you apply the core principles of {msg} to solve a standard problem in {topic_title}?\n\n"
+                f"*Hint: Consider the main functional components and their step-by-step interactions.*"
             )
-            actions = ["Explain the answer", "Give me another question", "Explain simpler"]
-            return (content, actions)
-
-        if rtype == "example":
+        elif rtype == "example":
             content = (
                 f"**Worked Example ({level.capitalize()} Level)**:\n"
-                f"Imagine an 8x8 grid of pixels representing a simple black-and-white image of a letter 'T'. "
-                f"A 3x3 horizontal edge detection kernel slides across the grid. When it passes over the top horizontal bar of the 'T', "
-                f"it outputs high values (activating the feature map), pinpointing the horizontal line."
+                f"Consider a step-by-step application of {msg} in {topic_title}.\n"
+                f"Step 1: Input data is prepared.\n"
+                f"Step 2: {msg} processes the core features.\n"
+                f"Step 3: Output result is produced for evaluation."
             )
-            actions = ["Give me a practice question", "Explain simpler", "Go back to standard"]
-            return (content, actions)
-
-        if level == "technical":
+        elif level == "technical":
             content = (
                 f"**Technical Explanation**:\n"
-                f"{grounded_context if grounded_context else 'CNNs process grid-structured data using spatial convolution kernels.'} "
-                f"Key mathematical steps involve weight sharing across receptive fields, ReLU non-linear activation, and pooling matrix downsampling."
+                f"{grounded_context if grounded_context else f'Core theoretical formulation of {msg} in {topic_title}.'} "
+                f"Includes mathematical relationships, structural components, and precise domain terminology."
             )
-            actions = ["I don't understand", "Give me an example", "Give me a practice question"]
         elif level == "simplified":
             content = (
                 f"**Simplified Explanation**:\n"
-                f"Think of a CNN as an automatic feature extractor. Instead of looking at every pixel at once, "
-                f"it breaks the image into tiny square patches using small moving filters to spot lines and corners."
+                f"Breaking down {msg} into essential concepts for {topic_title}. "
+                f"Focuses on key functional steps while reducing complex jargon."
             )
-            actions = ["Still not understanding", "Give me an example", "Practice question"]
         elif level == "beginner":
             content = (
                 f"**Beginner-Friendly Explanation**:\n"
-                f"Imagine inspecting a photo through a tiny cutout window sliding row by row. "
-                f"First, you spot edges. Then you combine edges to see shapes like circles. Finally, you combine shapes to recognize a face or dog."
+                f"An easy, step-by-step overview of {msg} without complicated technical terms."
             )
-            actions = ["Give me an analogy", "Give me an example", "Go back to normal"]
-        else: # analogy
+        else:
             content = (
                 f"**Analogy Mode**:\n"
-                f"A CNN works like a detective solving a puzzle using a magnifying glass. "
-                f"The detective first finds small clues (fingerprints/lines), puts clues together into evidence (footprints/patterns), "
-                f"and finally identifies the suspect (full object classification)."
+                f"Think of {msg} in {topic_title} like an everyday system where each component works together to achieve the final outcome."
             )
-            actions = ["Give me an example", "Practice question", "Reset to normal"]
 
-        return (content, actions)
+        return (content, actions, provider_used)
+

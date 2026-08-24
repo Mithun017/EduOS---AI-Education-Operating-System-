@@ -28,7 +28,7 @@ class GeminiProvider:
 
         start_time = time.time()
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
+            model_name="gemini-1.5-flash-latest",
             system_instruction=request.system_prompt if request.system_prompt else None
         )
 

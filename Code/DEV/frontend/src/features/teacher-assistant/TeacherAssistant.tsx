@@ -36,11 +36,11 @@ export const TeacherAssistant: React.FC = () => {
 
   // Quick Action Chips
   const quickActions = [
-    { label: "Explain simply", text: "Explain CNN with a simple real-world example" },
-    { label: "Show roadmap", text: "Show me a simple roadmap for this topic" },
-    { label: "Key points", text: "Key points for this unit" },
-    { label: "Class question", text: "Give me a quick question to ask the class" },
-    { label: "Resources", text: "What resources do I have for this topic?" },
+    { label: "Explain simply", text: `Explain ${selectedTopic?.name || "this topic"} with a simple real-world example` },
+    { label: "Show roadmap", text: `Show me a simple roadmap for ${selectedTopic?.name || "this topic"}` },
+    { label: "Key points", text: `Key points for ${selectedTopic?.name || "this topic"}` },
+    { label: "Class question", text: `Give me a quick question to ask the class about ${selectedTopic?.name || "this topic"}` },
+    { label: "Resources", text: `What resources do I have for ${selectedTopic?.name || "this topic"}?` },
   ];
 
   // Scroll to bottom
@@ -125,26 +125,22 @@ export const TeacherAssistant: React.FC = () => {
 
     setIsLoading(true);
     try {
-      if (wsClient) {
-        wsClient.sendQuery(textToSend, selectedTopic?.id || "topic-cnn-001");
-      } else {
-        const response = await askTeacherHTTP(
-          textToSend,
-          responseMode,
-          user?.token || '',
-          user?.institutionId || 'demo-inst-001'
-        );
-        setIsLoading(false);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `msg-${Date.now()}`,
-            sender: 'assistant',
-            responseType: response?.response_type || 'explanation',
-            payload: response
-          }
-        ]);
-      }
+      const response = await askTeacherHTTP(
+        user?.token || '',
+        selectedTopic?.id || '',
+        textToSend,
+        responseMode
+      );
+      setIsLoading(false);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `msg-${Date.now()}`,
+          sender: 'assistant',
+          responseType: response?.response_type || 'explanation',
+          payload: response
+        }
+      ]);
     } catch (err) {
       console.error("FastAPI AI Pipeline Call Error", err);
       setIsLoading(false);

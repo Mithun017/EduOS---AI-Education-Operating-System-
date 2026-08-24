@@ -28,9 +28,21 @@ async def student_test_session():
 
     await engine.dispose()
 
+class DummyChunk:
+    def __init__(self, text, provider_name="mock_provider"):
+        self.text = text
+        self.provider_name = provider_name
+
+class MockOrchestrator:
+    async def generate_stream(self, request):
+        yield DummyChunk("Mocked AI adaptive tutor explanation response.")
+        
+    async def classify_intent(self, prompt, categories):
+        return categories[0]
+
 @pytest.mark.asyncio
 async def test_full_student_adaptive_escalation_sequence(student_test_session: AsyncSession):
-    service = StudentAssistantService(session=student_test_session)
+    service = StudentAssistantService(session=student_test_session, orchestrator=MockOrchestrator())
 
     # Step 1: Initial question -> technical level
     req1 = StudentAskRequest(topic_id="topic-cnn-001", message="Explain CNN")
@@ -57,17 +69,17 @@ async def test_full_student_adaptive_escalation_sequence(student_test_session: A
     res4 = await service.process_student_query("inst_demo", "user_a", req4)
     assert res4["current_level"] == "beginner"
     assert res4["response_type"] == "example"
-    assert "Worked Example" in res4["content"]
+    assert "Example" in res4["content"]
 
     # Step 5: "give me a practice question" -> practice question
     req5 = StudentAskRequest(topic_id="topic-cnn-001", conversation_id=conv_id, message="give me a practice question")
     res5 = await service.process_student_query("inst_demo", "user_a", req5)
     assert res5["response_type"] == "practice_question"
-    assert "Practice Question" in res5["content"]
+    assert "practice question" in res5["content"].lower()
 
 @pytest.mark.asyncio
 async def test_student_privacy_isolation(student_test_session: AsyncSession):
-    service = StudentAssistantService(session=student_test_session)
+    service = StudentAssistantService(session=student_test_session, orchestrator=MockOrchestrator())
 
     # Student A starts private session
     req_a = StudentAskRequest(topic_id="topic-cnn-001", message="Private question for Student A")
