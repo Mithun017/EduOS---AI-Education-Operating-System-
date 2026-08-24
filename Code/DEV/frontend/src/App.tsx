@@ -167,9 +167,9 @@ function App() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] transition-colors duration-300">
+    <div className="flex flex-col h-screen max-h-screen w-screen max-w-[100vw] overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)] transition-colors duration-300">
       {/* Top Header Bar */}
-      <header className="border-b border-[var(--border-subtle)] bg-[var(--glass-bg)] backdrop-blur-md sticky top-0 z-30 px-4 py-2 flex items-center justify-between gap-3 transition-all duration-300">
+      <header className="border-b border-[var(--border-subtle)] bg-[var(--glass-bg)] backdrop-blur-md sticky top-0 z-30 px-4 py-2 flex items-center justify-between gap-3 shrink-0 transition-all duration-300">
         {/* Brand + Sidebar Toggle */}
         <div className="flex items-center gap-2">
           <button
@@ -224,10 +224,10 @@ function App() {
       </header>
 
       {/* Main Workspace Layout */}
-      <main className="flex-1 max-w-[1800px] w-full mx-auto p-3 md:p-4 flex gap-4 transition-all duration-300 relative">
+      <main className="flex-1 flex overflow-hidden p-3 md:p-4 gap-3 md:gap-4 transition-all duration-300 relative min-h-0">
         {/* Collapsible Left Side Panel */}
         <div
-          className={`transition-all duration-300 flex flex-col gap-3 shrink-0 ${
+          className={`transition-all duration-300 flex flex-col gap-3 shrink-0 h-full max-h-full overflow-y-auto scrollbar-thin ${
             sidebarOpen ? 'w-72 opacity-100' : 'w-0 opacity-0 overflow-hidden pointer-events-none p-0 border-0'
           }`}
         >
@@ -708,7 +708,7 @@ function App() {
         </div>
 
         {/* Feature Workspace */}
-        <div className="flex-1 h-[88vh] min-h-[550px] transition-all duration-300 overflow-hidden">
+        <div className="flex-1 h-full min-h-0 transition-all duration-300 overflow-hidden">
           {viewMode === 'teacher' ? <TeacherAssistant /> : <StudentAssistant />}
         </div>
       </main>

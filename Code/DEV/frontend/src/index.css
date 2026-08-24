@@ -150,12 +150,19 @@
 @layer base {
 
   html,
-  body {
+  body,
+  #root {
     background-color: var(--bg-app) !important;
     background-image: var(--bg-gradient) !important;
     color: var(--text-primary) !important;
     transition: background 0.3s ease, color 0.3s ease;
-    @apply antialiased font-sans min-h-screen overflow-x-hidden;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    width: 100vw !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    @apply antialiased font-sans;
   }
 
   /* Custom theme-aware scrollbar */
