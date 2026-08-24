@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useEduOSStore } from './store/store';
-import { fetchAcademicContext, loginUser } from './lib/api';
+import { loginUser } from './lib/api';
 import { TeacherAssistant } from './features/teacher-assistant/TeacherAssistant';
 import { StudentAssistant } from './features/student-assistant/StudentAssistant';
 import {
@@ -25,7 +25,6 @@ function App() {
     teachers,
     students,
     subjects,
-    setSubjects,
     selectedSubject,
     setSelectedSubject,
     selectedTopic,
@@ -64,24 +63,10 @@ function App() {
   const [newSubjName, setNewSubjName] = useState('');
   const [newTopicName, setNewTopicName] = useState('');
 
+  // Theme attribute handler
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
-
-  // Load academic context from API
-  useEffect(() => {
-    const loadAcademic = async () => {
-      try {
-        const data = await fetchAcademicContext();
-        if (data && data.length > 0) {
-          setSubjects(data);
-        }
-      } catch (err) {
-        console.warn("Could not load academic context from backend API.", err);
-      }
-    };
-    loadAcademic();
-  }, [setSubjects]);
 
   // Login handler
   const handleRoleLogin = async (role: 'teacher' | 'student') => {
