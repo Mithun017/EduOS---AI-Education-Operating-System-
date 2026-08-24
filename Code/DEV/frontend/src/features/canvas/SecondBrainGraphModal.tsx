@@ -326,83 +326,110 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         }
       });
 
-      // Render 3D Constellation Sphere Dot Nodes
+      // Render 3D Constellation Nodes
       projectedNodes.forEach((node) => {
         const isSelected = selectedNode?.id === node.id;
         const isHovered = hoveredNode?.id === node.id;
         const isCore = node.type === 'core';
 
-        const baseDotRadius = isCore ? 10 : isSelected || isHovered ? 7.5 : 5.5;
-        const radius = baseDotRadius * node.projScale!;
-
         ctx.save();
         ctx.translate(node.projX!, node.projY!);
 
-        // Outer Glow Halo Ring
-        ctx.beginPath();
-        ctx.arc(0, 0, radius + (isCore ? 8 : 5), 0, Math.PI * 2);
-        ctx.fillStyle = isCore
-          ? (isLight ? 'rgba(16, 37, 66, 0.22)' : 'rgba(139, 92, 246, 0.35)')
-          : isSelected || isHovered
-          ? (isLight ? 'rgba(16, 37, 66, 0.2)' : 'rgba(56, 189, 248, 0.35)')
-          : (isLight ? 'rgba(16, 37, 66, 0.06)' : 'rgba(255, 255, 255, 0.08)');
-        ctx.fill();
-
-        // Node Dot Sphere Body
-        ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-
         if (isCore) {
-          ctx.fillStyle = isLight ? '#102542' : '#FFFFFF';
-          ctx.strokeStyle = isLight ? '#2563EB' : '#8B5CF6';
-          ctx.lineWidth = 3;
-        } else if (isSelected || isHovered) {
-          ctx.fillStyle = isLight ? '#2563EB' : '#38BDF8';
-          ctx.strokeStyle = isLight ? '#1D4ED8' : '#7DD3FC';
+          // ROOT NODE ALONE: Highlighted Oval Pill Shape with centered text!
+          const labelText = node.label.length > 26 ? `${node.label.substring(0, 24)}...` : node.label;
+          ctx.font = `bold ${Math.max(11, Math.round(13 * node.projScale!))}px sans-serif`;
+
+          const textMetrics = ctx.measureText(labelText);
+          const padX = 16;
+          const padY = 8;
+          const bgWidth = textMetrics.width + padX * 2;
+          const bgHeight = 14 + padY * 2;
+          const borderRadius = bgHeight / 2; // Highlighted Oval Pill Shape
+
+          // Outer Glowing Oval Halo
+          ctx.beginPath();
+          ctx.roundRect(-bgWidth / 2 - 4, -bgHeight / 2 - 4, bgWidth + 8, bgHeight + 8, borderRadius + 4);
+          ctx.fillStyle = isLight ? 'rgba(16, 37, 66, 0.25)' : 'rgba(139, 92, 246, 0.4)';
+          ctx.fill();
+
+          // Highlighted Oval Pill Body
+          ctx.beginPath();
+          ctx.roundRect(-bgWidth / 2, -bgHeight / 2, bgWidth, bgHeight, borderRadius);
+          ctx.fillStyle = isLight ? '#102542' : '#8B5CF6';
+          ctx.strokeStyle = isLight ? '#2563EB' : '#D6C8DF';
           ctx.lineWidth = 2.5;
+          ctx.fill();
+          ctx.stroke();
+
+          // Centered Root Text Label
+          ctx.fillStyle = '#FFFFFF';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+          ctx.shadowBlur = 4;
+          ctx.fillText(labelText, 0, 1);
         } else {
-          if (isLight) {
-            switch (node.type) {
-              case 'branch': ctx.fillStyle = '#2563EB'; break;
-              case 'math': ctx.fillStyle = '#7C3AED'; break;
-              case 'component': ctx.fillStyle = '#059669'; break;
-              case 'application': ctx.fillStyle = '#D97706'; break;
-              default: ctx.fillStyle = '#102542';
-            }
-            ctx.strokeStyle = 'rgba(16, 37, 66, 0.4)';
+          // NON-ROOT NODES: Sleek Constellation Sphere Dots with adjacent text labels!
+          const baseDotRadius = isSelected || isHovered ? 7.5 : 5.5;
+          const radius = baseDotRadius * node.projScale!;
+
+          // Outer Glow Halo Ring
+          ctx.beginPath();
+          ctx.arc(0, 0, radius + 5, 0, Math.PI * 2);
+          ctx.fillStyle = isSelected || isHovered
+            ? (isLight ? 'rgba(16, 37, 66, 0.2)' : 'rgba(56, 189, 248, 0.35)')
+            : (isLight ? 'rgba(16, 37, 66, 0.06)' : 'rgba(255, 255, 255, 0.08)');
+          ctx.fill();
+
+          // Node Dot Sphere Body
+          ctx.beginPath();
+          ctx.arc(0, 0, radius, 0, Math.PI * 2);
+
+          if (isSelected || isHovered) {
+            ctx.fillStyle = isLight ? '#2563EB' : '#38BDF8';
+            ctx.strokeStyle = isLight ? '#1D4ED8' : '#7DD3FC';
+            ctx.lineWidth = 2.5;
           } else {
-            switch (node.type) {
-              case 'branch': ctx.fillStyle = '#38BDF8'; break;
-              case 'math': ctx.fillStyle = '#C084FC'; break;
-              case 'component': ctx.fillStyle = '#34D399'; break;
-              case 'application': ctx.fillStyle = '#FBBF24'; break;
-              default: ctx.fillStyle = '#94A3B8';
+            if (isLight) {
+              switch (node.type) {
+                case 'branch': ctx.fillStyle = '#2563EB'; break;
+                case 'math': ctx.fillStyle = '#7C3AED'; break;
+                case 'component': ctx.fillStyle = '#059669'; break;
+                case 'application': ctx.fillStyle = '#D97706'; break;
+                default: ctx.fillStyle = '#102542';
+              }
+              ctx.strokeStyle = 'rgba(16, 37, 66, 0.4)';
+            } else {
+              switch (node.type) {
+                case 'branch': ctx.fillStyle = '#38BDF8'; break;
+                case 'math': ctx.fillStyle = '#C084FC'; break;
+                case 'component': ctx.fillStyle = '#34D399'; break;
+                case 'application': ctx.fillStyle = '#FBBF24'; break;
+                default: ctx.fillStyle = '#94A3B8';
+              }
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
             }
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+            ctx.lineWidth = 1;
           }
-          ctx.lineWidth = 1;
+
+          ctx.fill();
+          ctx.stroke();
+
+          // Adjacent Floating Text Label
+          const labelText = node.label.length > 24 ? `${node.label.substring(0, 22)}...` : node.label;
+          ctx.font = `500 ${Math.max(9, Math.round(10.5 * node.projScale!))}px sans-serif`;
+
+          ctx.shadowColor = isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.9)';
+          ctx.shadowBlur = 4;
+          ctx.fillStyle = isSelected || isHovered
+            ? (isLight ? '#2563EB' : '#38BDF8')
+            : (isLight ? '#102542' : '#E2E8F0');
+
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(labelText, radius + 7, 0);
         }
-
-        ctx.fill();
-        ctx.stroke();
-
-        // Adjacent Floating Text Label
-        const labelText = node.label.length > 24 ? `${node.label.substring(0, 22)}...` : node.label;
-        ctx.font = isCore
-          ? `bold ${Math.max(11, Math.round(13 * node.projScale!))}px sans-serif`
-          : `500 ${Math.max(9, Math.round(10.5 * node.projScale!))}px sans-serif`;
-
-        ctx.shadowColor = isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowBlur = 4;
-        ctx.fillStyle = isCore
-          ? (isLight ? '#102542' : '#FFFFFF')
-          : isSelected || isHovered
-          ? (isLight ? '#2563EB' : '#38BDF8')
-          : (isLight ? '#102542' : '#E2E8F0');
-
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(labelText, radius + 7, 0);
 
         ctx.restore();
       });
