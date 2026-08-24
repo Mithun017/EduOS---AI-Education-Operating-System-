@@ -288,13 +288,35 @@ function App() {
               <div className="space-y-2 pt-1 border-t border-[var(--border-subtle)]">
                 <div className="flex items-center justify-between">
                   <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Select Saved Teacher</label>
-                  <button
-                    onClick={() => setShowAddTeacher(!showAddTeacher)}
-                    className="text-[9px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <PlusCircle className="w-3 h-3" />
-                    <span>{showAddTeacher ? "Cancel" : "+ Add Teacher"}</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setShowAddTeacher(!showAddTeacher)}
+                      className="text-[9px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <PlusCircle className="w-3 h-3" />
+                      <span>{showAddTeacher ? "Cancel" : "+ Add"}</span>
+                    </button>
+                    {teachers.length > 0 && (
+                      <button
+                        onClick={() => {
+                          const match = teachers.find(t => t.name === teacherName) || teachers[0];
+                          if (match && confirm(`Remove teacher profile '${match.name}'?`)) {
+                            deleteTeacher(match.id);
+                            const remaining = teachers.filter(t => t.id !== match.id);
+                            if (remaining.length > 0) {
+                              setTeacherName(remaining[0].name);
+                              setTeacherId(remaining[0].employeeId);
+                            }
+                          }
+                        }}
+                        className="text-[9px] text-rose-400 hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                        title="Remove Active Teacher"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>- Remove</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Dropdown of Saved Teachers + Delete Button or Empty AI Badge */}
@@ -318,25 +340,23 @@ function App() {
                         </option>
                       ))}
                     </select>
-                    {teachers.length > 1 && (
-                      <button
-                        onClick={() => {
-                          const match = teachers.find(t => t.name === teacherName) || teachers[0];
-                          if (match && confirm(`Delete teacher profile '${match.name}'?`)) {
-                            deleteTeacher(match.id);
-                            const remaining = teachers.filter(t => t.id !== match.id);
-                            if (remaining.length > 0) {
-                              setTeacherName(remaining[0].name);
-                              setTeacherId(remaining[0].employeeId);
-                            }
+                    <button
+                      onClick={() => {
+                        const match = teachers.find(t => t.name === teacherName) || teachers[0];
+                        if (match && confirm(`Remove teacher profile '${match.name}'?`)) {
+                          deleteTeacher(match.id);
+                          const remaining = teachers.filter(t => t.id !== match.id);
+                          if (remaining.length > 0) {
+                            setTeacherName(remaining[0].name);
+                            setTeacherId(remaining[0].employeeId);
                           }
-                        }}
-                        className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
-                        title="Delete Selected Teacher Profile"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                        }
+                      }}
+                      className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
+                      title="Remove Selected Teacher Profile"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 ) : (
                   <div className="p-2.5 rounded-xl bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] text-[10px] text-[var(--text-secondary)] leading-relaxed">
@@ -383,40 +403,62 @@ function App() {
               <div className="space-y-2 pt-1 border-t border-[var(--border-subtle)]">
                 <div className="flex items-center justify-between">
                   <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Select Saved Student</label>
-                  <button
-                    onClick={() => setShowAddStudent(!showAddStudent)}
-                    className="text-[9px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <PlusCircle className="w-3 h-3" />
-                    <span>{showAddStudent ? "Cancel" : "+ Add Student"}</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => setShowAddStudent(!showAddStudent)}
+                      className="text-[9px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <PlusCircle className="w-3 h-3" />
+                      <span>{showAddStudent ? "Cancel" : "+ Add"}</span>
+                    </button>
+                    {students.length > 0 && (
+                      <button
+                        onClick={() => {
+                          const match = students.find(s => s.name === studentName) || students[0];
+                          if (match && confirm(`Remove student profile '${match.name}'?`)) {
+                            deleteStudent(match.id);
+                            const remaining = students.filter(s => s.id !== match.id);
+                            if (remaining.length > 0) {
+                              setStudentName(remaining[0].name);
+                              setRollNumber(remaining[0].rollNumber);
+                            }
+                          }
+                        }}
+                        className="text-[9px] text-rose-400 hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                        title="Remove Active Student"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>- Remove</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Dropdown of Saved Students + Delete Button */}
-                <div className="flex gap-1.5 items-center">
-                  <select
-                    value={students.find(s => s.name === studentName)?.id || ''}
-                    onChange={(e) => {
-                      const match = students.find(s => s.id === e.target.value);
-                      if (match) {
-                        setStudentName(match.name);
-                        setRollNumber(match.rollNumber);
-                        setUser({ ...user!, fullName: match.name, rollNumber: match.rollNumber });
-                      }
-                    }}
-                    className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
-                  >
-                    {students.map((s) => (
-                      <option key={s.id} value={s.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                        {s.name} (Roll #{s.rollNumber})
-                      </option>
-                    ))}
-                  </select>
-                  {students.length > 1 && (
+                {students.length > 0 ? (
+                  <div className="flex gap-1.5 items-center">
+                    <select
+                      value={students.find(s => s.name === studentName)?.id || ''}
+                      onChange={(e) => {
+                        const match = students.find(s => s.id === e.target.value);
+                        if (match) {
+                          setStudentName(match.name);
+                          setRollNumber(match.rollNumber);
+                          setUser({ ...user!, fullName: match.name, rollNumber: match.rollNumber });
+                        }
+                      }}
+                      className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
+                    >
+                      {students.map((s) => (
+                        <option key={s.id} value={s.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                          {s.name} (Roll #{s.rollNumber})
+                        </option>
+                      ))}
+                    </select>
                     <button
                       onClick={() => {
                         const match = students.find(s => s.name === studentName) || students[0];
-                        if (match && confirm(`Delete student profile '${match.name}'?`)) {
+                        if (match && confirm(`Remove student profile '${match.name}'?`)) {
                           deleteStudent(match.id);
                           const remaining = students.filter(s => s.id !== match.id);
                           if (remaining.length > 0) {
@@ -426,12 +468,16 @@ function App() {
                         }
                       }}
                       className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
-                      title="Delete Selected Student Profile"
+                      title="Remove Selected Student Profile"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
-                </div>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] text-[10px] text-[var(--text-secondary)] leading-relaxed">
+                    ✨ <span className="font-semibold text-[var(--text-primary)]">AI Dynamic Mode:</span> No mandatory student required. AI handles analysis dynamically.
+                  </div>
+                )}
 
                 {/* Inline Add Student Form */}
                 {showAddStudent ? (
@@ -477,14 +523,30 @@ function App() {
                 <Compass className="w-3.5 h-3.5" />
                 <h4 className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-primary)]">Curriculum Scope</h4>
               </div>
-              <button
-                onClick={() => setShowAddSubject(!showAddSubject)}
-                className="text-[9px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-1 cursor-pointer"
-                title="Add New Subject"
-              >
-                <BookPlus className="w-3 h-3" />
-                <span>+ Add Subject</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setShowAddSubject(!showAddSubject)}
+                  className="text-[9px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                  title="Add New Subject"
+                >
+                  <BookPlus className="w-3 h-3" />
+                  <span>+ Add Subject</span>
+                </button>
+                {selectedSubject && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Remove subject '${selectedSubject.name}' and all its topics?`)) {
+                        deleteSubject(selectedSubject.id);
+                      }
+                    }}
+                    className="text-[9px] text-rose-400 hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                    title="Remove Active Subject"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>- Remove</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Inline Add Subject Form */}
@@ -541,15 +603,15 @@ function App() {
                         </option>
                       ))}
                     </select>
-                    {selectedSubject && subjects.length > 1 && (
+                    {selectedSubject && (
                       <button
                         onClick={() => {
-                          if (confirm(`Delete subject '${selectedSubject.name}' and all its topics?`)) {
+                          if (confirm(`Remove subject '${selectedSubject.name}' and all its topics?`)) {
                             deleteSubject(selectedSubject.id);
                           }
                         }}
                         className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
-                        title="Delete Selected Subject"
+                        title="Remove Selected Subject"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -568,13 +630,29 @@ function App() {
                   <div className="flex items-center justify-between">
                     <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Topic</label>
                     {selectedSubject && (
-                      <button
-                        onClick={() => setShowAddTopic(!showAddTopic)}
-                        className="text-[8px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
-                      >
-                        <FolderPlus className="w-2.5 h-2.5" />
-                        <span>+ Add Topic</span>
-                      </button>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setShowAddTopic(!showAddTopic)}
+                          className="text-[8px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <FolderPlus className="w-2.5 h-2.5" />
+                          <span>+ Add Topic</span>
+                        </button>
+                        {selectedTopic && (
+                          <button
+                            onClick={() => {
+                              if (confirm(`Remove topic '${selectedTopic.name}'?`)) {
+                                deleteTopic(selectedSubject.id, selectedTopic.id);
+                              }
+                            }}
+                            className="text-[8px] text-rose-400 hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                            title="Remove Active Topic"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                            <span>- Remove</span>
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -622,15 +700,15 @@ function App() {
                           </option>
                         ))}
                       </select>
-                      {selectedTopic && selectedSubject.units[0].topics.length > 1 && (
+                      {selectedTopic && (
                         <button
                           onClick={() => {
-                            if (confirm(`Delete topic '${selectedTopic.name}'?`)) {
+                            if (confirm(`Remove topic '${selectedTopic.name}'?`)) {
                               deleteTopic(selectedSubject.id, selectedTopic.id);
                             }
                           }}
                           className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
-                          title="Delete Selected Topic"
+                          title="Remove Selected Topic"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
