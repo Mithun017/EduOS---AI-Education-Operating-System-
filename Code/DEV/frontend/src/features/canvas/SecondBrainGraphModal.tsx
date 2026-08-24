@@ -240,8 +240,10 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
       const centerX = width / 2 + panX;
       const centerY = height / 2 + panY;
 
-      // Dark Constellation Universe Canvas Background
-      ctx.fillStyle = '#0B0F19';
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+
+      // Theme-Aware Canvas Background (Cream Beige in Light Theme, Dark Slate in Dark Theme)
+      ctx.fillStyle = isLight ? '#FFFCDC' : '#0B0F19';
       ctx.fillRect(0, 0, width, height);
 
       // 3D Rotation Matrix Coefficients
@@ -289,11 +291,11 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         ctx.lineTo(toNode.projX!, toNode.projY!);
 
         if (isConnectedToSelected || isConnectedToHovered) {
-          ctx.strokeStyle = '#38BDF8';
+          ctx.strokeStyle = isLight ? '#102542' : '#38BDF8';
           ctx.lineWidth = 2.2 * fromNode.projScale!;
           ctx.setLineDash([]);
         } else {
-          ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+          ctx.strokeStyle = isLight ? 'rgba(16, 37, 66, 0.28)' : 'rgba(148, 163, 184, 0.22)';
           ctx.lineWidth = 1.2 * fromNode.projScale!;
           if (edge.relation === 'mitigates' || edge.relation === 'prevents_decay') {
             ctx.setLineDash([3, 3]);
@@ -308,15 +310,15 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
           const midX = (fromNode.projX! + toNode.projX!) / 2;
           const midY = (fromNode.projY! + toNode.projY!) / 2;
 
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-          ctx.strokeStyle = '#38BDF8';
+          ctx.fillStyle = isLight ? 'rgba(255, 252, 220, 0.95)' : 'rgba(15, 23, 42, 0.9)';
+          ctx.strokeStyle = isLight ? '#102542' : '#38BDF8';
           ctx.lineWidth = 1;
           ctx.beginPath();
           ctx.roundRect(midX - 32, midY - 9, 64, 18, 5);
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = '#38BDF8';
+          ctx.fillStyle = isLight ? '#102542' : '#38BDF8';
           ctx.font = 'bold 9px monospace';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -340,10 +342,10 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         ctx.beginPath();
         ctx.arc(0, 0, radius + (isCore ? 8 : 5), 0, Math.PI * 2);
         ctx.fillStyle = isCore
-          ? 'rgba(139, 92, 246, 0.35)'
+          ? (isLight ? 'rgba(16, 37, 66, 0.22)' : 'rgba(139, 92, 246, 0.35)')
           : isSelected || isHovered
-          ? 'rgba(56, 189, 248, 0.35)'
-          : 'rgba(255, 255, 255, 0.08)';
+          ? (isLight ? 'rgba(16, 37, 66, 0.2)' : 'rgba(56, 189, 248, 0.35)')
+          : (isLight ? 'rgba(16, 37, 66, 0.06)' : 'rgba(255, 255, 255, 0.08)');
         ctx.fill();
 
         // Node Dot Sphere Body
@@ -351,22 +353,33 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         ctx.arc(0, 0, radius, 0, Math.PI * 2);
 
         if (isCore) {
-          ctx.fillStyle = '#FFFFFF';
-          ctx.strokeStyle = '#8B5CF6';
+          ctx.fillStyle = isLight ? '#102542' : '#FFFFFF';
+          ctx.strokeStyle = isLight ? '#2563EB' : '#8B5CF6';
           ctx.lineWidth = 3;
         } else if (isSelected || isHovered) {
-          ctx.fillStyle = '#38BDF8';
-          ctx.strokeStyle = '#7DD3FC';
+          ctx.fillStyle = isLight ? '#2563EB' : '#38BDF8';
+          ctx.strokeStyle = isLight ? '#1D4ED8' : '#7DD3FC';
           ctx.lineWidth = 2.5;
         } else {
-          switch (node.type) {
-            case 'branch': ctx.fillStyle = '#38BDF8'; break;
-            case 'math': ctx.fillStyle = '#C084FC'; break;
-            case 'component': ctx.fillStyle = '#34D399'; break;
-            case 'application': ctx.fillStyle = '#FBBF24'; break;
-            default: ctx.fillStyle = '#94A3B8';
+          if (isLight) {
+            switch (node.type) {
+              case 'branch': ctx.fillStyle = '#2563EB'; break;
+              case 'math': ctx.fillStyle = '#7C3AED'; break;
+              case 'component': ctx.fillStyle = '#059669'; break;
+              case 'application': ctx.fillStyle = '#D97706'; break;
+              default: ctx.fillStyle = '#102542';
+            }
+            ctx.strokeStyle = 'rgba(16, 37, 66, 0.4)';
+          } else {
+            switch (node.type) {
+              case 'branch': ctx.fillStyle = '#38BDF8'; break;
+              case 'math': ctx.fillStyle = '#C084FC'; break;
+              case 'component': ctx.fillStyle = '#34D399'; break;
+              case 'application': ctx.fillStyle = '#FBBF24'; break;
+              default: ctx.fillStyle = '#94A3B8';
+            }
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
           }
-          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
           ctx.lineWidth = 1;
         }
 
@@ -379,13 +392,13 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
           ? `bold ${Math.max(11, Math.round(13 * node.projScale!))}px sans-serif`
           : `500 ${Math.max(9, Math.round(10.5 * node.projScale!))}px sans-serif`;
 
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowBlur = 5;
+        ctx.shadowColor = isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = 4;
         ctx.fillStyle = isCore
-          ? '#FFFFFF'
+          ? (isLight ? '#102542' : '#FFFFFF')
           : isSelected || isHovered
-          ? '#38BDF8'
-          : '#E2E8F0';
+          ? (isLight ? '#2563EB' : '#38BDF8')
+          : (isLight ? '#102542' : '#E2E8F0');
 
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
