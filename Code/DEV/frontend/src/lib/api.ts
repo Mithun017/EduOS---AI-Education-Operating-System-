@@ -191,3 +191,57 @@ export const plotFormula = async (
   return response.json();
 };
 
+export const fetch3DKnowledgeGraph = async (
+  token: string,
+  topic: string
+) => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/canvas/knowledge-graph`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ topic })
+  });
+  if (!response.ok) {
+    throw new Error("Failed to generate 3D knowledge graph");
+  }
+  return response.json();
+};
+
+export const searchWebForSelection = async (
+  token: string,
+  query: string
+) => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/canvas/web-search`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ query })
+  });
+  if (!response.ok) {
+    throw new Error("Failed to perform web search for selection");
+  }
+  return response.json();
+};
+
+export const visualizeConceptForSelection = async (
+  token: string,
+  text: string
+) => {
+  const response = await fetch(`${API_BASE_URL}/api/v1/canvas/visualize`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify({ text })
+  });
+  if (!response.ok) {
+    throw new Error("Failed to visualize concept");
+  }
+  return response.json();
+};
+

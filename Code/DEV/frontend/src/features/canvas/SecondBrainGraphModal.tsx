@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Network, Sparkles, RefreshCw, Search, ArrowRight, BookOpen, Info, RotateCcw, ZoomIn, ZoomOut, Play, Pause } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, Network, Sparkles, RefreshCw, Search, ArrowRight, BookOpen, Info, RotateCcw, ZoomIn, ZoomOut, Play, Pause, Compass, CheckCircle2, Circle, CheckSquare, Trophy } from 'lucide-react';
 import { useEduOSStore } from '../../store/store';
-import { askTeacherHTTP } from '../../lib/api';
+import { fetch3DKnowledgeGraph } from '../../lib/api';
 
 interface Node3D {
   id: string;
@@ -23,10 +24,43 @@ interface Edge3D {
   relation: string;
 }
 
+interface RoadmapSubItem {
+  id: string;
+  title: string;
+  type?: 'recommended' | 'alternative' | 'optional';
+  summary?: string;
+}
+
+interface RoadmapSection {
+  id: string;
+  title: string;
+  type?: 'recommended' | 'alternative' | 'optional';
+  summary?: string;
+  sub_items?: RoadmapSubItem[];
+}
+
+interface RoadmapPhase {
+  id: string;
+  phase_number: number;
+  title: string;
+  duration: string;
+  status: string;
+  summary: string;
+  key_topics: string[];
+  milestone_project: string;
+  sections?: RoadmapSection[];
+}
+
+interface RoadmapData {
+  total_duration: string;
+  phases: RoadmapPhase[];
+}
+
 interface GraphData3D {
   topic: string;
   nodes: Node3D[];
   edges: Edge3D[];
+  roadmap?: RoadmapData;
 }
 
 interface SecondBrainGraphModalProps {
@@ -41,11 +75,68 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
   initialTopic,
 }) => {
   const { selectedTopic, user } = useEduOSStore();
-  const [topicInput, setTopicInput] = useState(initialTopic || selectedTopic?.name || 'Recurrent Neural Networks (RNN)');
+  const [topicInput, setTopicInput] = useState(initialTopic || selectedTopic?.name || 'Convolutional Neural Networks (CNN)');
   const [graphData, setGraphData] = useState<GraphData3D | null>(null);
   const [selectedNode, setSelectedNode] = useState<Node3D | null>(null);
   const [hoveredNode, setHoveredNode] = useState<Node3D | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // View mode state (3D Graph vs Timeline Roadmap)
+  const [modalView, setModalView] = useState<'graph' | 'roadmap'>('graph');
+
+  // Interactive Roadmap Checkbox Progress State
+  const [completedNodeIds, setCompletedNodeIds] = useState<Set<string>>(new Set());
+  const [selectedRoadmapItem, setSelectedRoadmapItem] = useState<{
+    id: string;
+    title: string;
+    type?: string;
+    summary: string;
+    phaseTitle?: string;
+    project?: string;
+  } | null>(null);
+
+  // Toggle completion of any roadmap node
+  const toggleNodeCompletion = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCompletedNodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  // Helper to extract all node IDs for global completion calculation
+  const getAllRoadmapNodeIds = (): string[] => {
+    if (!graphData?.roadmap?.phases) return [];
+    const ids: string[] = [];
+    graphData.roadmap.phases.forEach((phase) => {
+      ids.push(phase.id);
+      (phase.sections || []).forEach((sec) => {
+        ids.push(sec.id);
+        (sec.sub_items || []).forEach((item) => {
+          ids.push(item.id);
+        });
+      });
+    });
+    return ids;
+  };
+
+  const allRoadmapIds = getAllRoadmapNodeIds();
+  const completedCount = allRoadmapIds.filter((id) => completedNodeIds.has(id)).length;
+  const totalRoadmapNodes = allRoadmapIds.length || 1;
+  const completionPercentage = Math.round((completedCount / totalRoadmapNodes) * 100);
+
+  const handleMarkAllCompleted = () => {
+    setCompletedNodeIds(new Set(allRoadmapIds));
+  };
+
+  const handleResetProgress = () => {
+    setCompletedNodeIds(new Set());
+  };
 
   // 3D Interactive Controls State
   const [autoRotate, setAutoRotate] = useState(true);
@@ -57,122 +148,34 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Generate Multi-Tier Dense 3D Graph Structure
+  // Generate Multi-Tier Dense 3D Graph Structure via AI
   const generateGraphForTopic = async (topicName: string) => {
     setIsGenerating(true);
     setSelectedNode(null);
 
     try {
-      // Query real AI engine for concept breakdown
-      const promptText = `Provide detailed knowledge breakdown for topic "${topicName}".`;
-      const response = await askTeacherHTTP(
-        user?.token || '',
-        selectedTopic?.id || 'topic-cnn-001',
-        promptText,
-        'hybrid'
-      );
-
-      const coreId = 'core-0';
-      const nodes: Node3D[] = [
-        {
-          id: coreId,
-          label: topicName,
-          type: 'core',
-          summary: response?.summary || `Core 3D Central Concept analysis for ${topicName}. Represents the foundational educational domain.`,
-          x: 0,
-          y: 0,
-          z: 0,
-          tier: 0
-        }
-      ];
-
-      // Tier 1: Major Conceptual Branches (4 Nodes)
-      const tier1Labels = [
-        `${topicName} Fundamentals`,
-        `Mathematical & Vector Formulations`,
-        `Core Architectural Components`,
-        `Real-World Practical Applications`
-      ];
-
-      const edges: Edge3D[] = [];
-      const radius1 = 160;
-
-      tier1Labels.forEach((label, idx) => {
-        const angle = (idx * Math.PI) / 2;
-        const nodeId = `t1-${idx}`;
-        nodes.push({
-          id: nodeId,
-          label,
-          type: 'branch',
-          summary: `Primary structural branch for "${label}". Establishes functional relationships in ${topicName}.`,
-          x: radius1 * Math.cos(angle),
-          y: (idx % 2 === 0 ? 1 : -1) * 40,
-          z: radius1 * Math.sin(angle),
-          tier: 1
-        });
-        edges.push({ from: coreId, to: nodeId, relation: 'originates_from' });
-      });
-
-      // Tier 2: Mathematical & Architectural Sub-Nodes (8 Nodes)
-      const subLabels = [
-        `Gated Hidden States`,
-        `Vanishing Gradient Compensation`,
-        `Backpropagation Through Time (BPTT)`,
-        `Cross-Entropy Loss Optimization`,
-        `Sequence-to-Sequence Modeling`,
-        `Attention Mechanism Coupling`,
-        `Temporal Feature Maps`,
-        `Softmax Logit Normalization`
-      ];
-
-      const radius2 = 270;
-      subLabels.forEach((label, idx) => {
-        const phi = Math.acos(-1 + (2 * idx) / subLabels.length);
-        const theta = Math.sqrt(subLabels.length * Math.PI) * phi;
-
-        const nodeId = `t2-${idx}`;
-        nodes.push({
-          id: nodeId,
-          label,
-          type: idx % 2 === 0 ? 'math' : 'component',
-          summary: `Technical operational sub-node for "${label}". Explores derivative formulas, matrix operations, and execution pipelines.`,
-          x: radius2 * Math.sin(phi) * Math.cos(theta),
-          y: radius2 * Math.cos(phi),
-          z: radius2 * Math.sin(phi) * Math.sin(theta),
-          tier: 2
-        });
-
-        // Connect Tier 2 to Tier 1 parents
-        const parentId = `t1-${idx % 4}`;
-        edges.push({ from: parentId, to: nodeId, relation: idx % 2 === 0 ? 'executes' : 'defines' });
-      });
-
-      // Cross-Tier Interconnected Edges (Denser 3D Brain Web)
-      edges.push(
-        { from: 't2-0', to: 't2-1', relation: 'mitigates' },
-        { from: 't2-2', to: 't2-3', relation: 'optimizes' },
-        { from: 't2-4', to: 't2-5', relation: 'enhances' },
-        { from: 't2-6', to: 't2-7', relation: 'classifies' },
-        { from: 't1-0', to: 't2-6', relation: 'feeds_into' },
-        { from: 't1-1', to: 't2-2', relation: 'derives' }
-      );
-
-      setGraphData({ topic: topicName, nodes, edges });
-      setSelectedNode(nodes[0]);
+      // Query backend AI Orchestrator for dynamic 3D Knowledge Graph
+      const data = await fetch3DKnowledgeGraph(user?.token || '', topicName);
+      if (data && data.nodes && data.nodes.length > 0) {
+        setGraphData(data);
+        setSelectedNode(data.nodes[0]);
+      } else {
+        throw new Error("Empty AI graph output");
+      }
     } catch (err) {
       console.warn("Generating 3D knowledge graph fallback.", err);
       // Fallback dense 3D graph
       const coreId = 'core-0';
       const fallbackNodes: Node3D[] = [
         { id: coreId, label: topicName, type: 'core', summary: `Core concept analysis for ${topicName}.`, x: 0, y: 0, z: 0, tier: 0 },
-        { id: 't1-0', label: 'Hidden State Vector', type: 'branch', summary: 'Memory retention vector passing temporal state across time steps.', x: -160, y: 30, z: 80, tier: 1 },
-        { id: 't1-1', label: 'Recurrent Weight Matrices', type: 'branch', summary: 'Parameters (W_hh, W_xh) shared across time execution.', x: 160, y: -40, z: -80, tier: 1 },
-        { id: 't1-2', label: 'Backpropagation Through Time', type: 'math', summary: 'Chain-rule unrolling across temporal steps.', x: 80, y: 150, z: -140, tier: 1 },
-        { id: 't1-3', label: 'LSTM & GRU Gating', type: 'component', summary: 'Forget, input, and output gates controlling memory flow.', x: -90, y: -140, z: 120, tier: 1 },
-        { id: 't2-0', label: 'Vanishing Gradient Mitigation', type: 'math', summary: 'Solves exponential gradient decay via additive cell states.', x: -240, y: 80, z: 180, tier: 2 },
-        { id: 't2-1', label: 'Tanh Activation Function', type: 'math', summary: 'Bounds hidden state activations between -1 and +1.', x: 220, y: -110, z: 160, tier: 2 },
-        { id: 't2-2', label: 'Sequence-to-Sequence Decoder', type: 'application', summary: 'Generates output sequences for translation & text tasks.', x: 180, y: 210, z: -200, tier: 2 },
-        { id: 't2-3', label: 'Attention Mechanism', type: 'component', summary: 'Computes dynamic alignment scores across temporal inputs.', x: -200, y: -200, z: -160, tier: 2 }
+        { id: 't1-0', label: `${topicName} Foundations`, type: 'branch', summary: `Foundational mathematical principles of ${topicName}.`, x: -380, y: 70, z: 180, tier: 1 },
+        { id: 't1-1', label: `Architectural Nodes`, type: 'branch', summary: `Structural components and transformations.`, x: 380, y: -80, z: -180, tier: 1 },
+        { id: 't1-2', label: `Mathematical Formulations`, type: 'math', summary: 'Derivative chain-rules & matrix operations.', x: 180, y: 320, z: -360, tier: 1 },
+        { id: 't1-3', label: `Real-World Deployment`, type: 'component', summary: 'Practical applications & production models.', x: -200, y: -320, z: 300, tier: 1 },
+        { id: 't2-0', label: 'Feature Map Normalization', type: 'math', summary: 'Standardizes vector scaling across layers.', x: -560, y: 160, z: 360, tier: 2 },
+        { id: 't2-1', label: 'Non-Linear Activations', type: 'math', summary: 'Applies threshold functions to embeddings.', x: 540, y: -240, z: 320, tier: 2 },
+        { id: 't2-2', label: 'Dimensionality Reduction', type: 'application', summary: 'Compresses spatial dimensions efficiently.', x: 420, y: 460, z: -480, tier: 2 },
+        { id: 't2-3', label: 'Gradient Loss Optimization', type: 'component', summary: 'Computes loss derivatives for weight updates.', x: -460, y: -440, z: -380, tier: 2 }
       ];
 
       const fallbackEdges: Edge3D[] = [
@@ -180,11 +183,10 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         { from: coreId, to: 't1-1', relation: 'parameterizes' },
         { from: coreId, to: 't1-2', relation: 'optimizes' },
         { from: coreId, to: 't1-3', relation: 'architects' },
-        { from: 't1-0', to: 't2-0', relation: 'prevents_decay' },
+        { from: 't1-0', to: 't2-0', relation: 'normalizes' },
         { from: 't1-1', to: 't2-1', relation: 'activates' },
-        { from: 't1-2', to: 't2-2', relation: 'decodes' },
-        { from: 't1-3', to: 't2-3', relation: 'couples_with' },
-        { from: 't2-0', to: 't1-3', relation: 'stabilizes' }
+        { from: 't1-2', to: 't2-2', relation: 'compresses' },
+        { from: 't1-3', to: 't2-3', relation: 'updates' }
       ];
 
       setGraphData({ topic: topicName, nodes: fallbackNodes, edges: fallbackEdges });
@@ -196,7 +198,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const activeTopic = initialTopic || selectedTopic?.name || 'Recurrent Neural Networks (RNN)';
+      const activeTopic = initialTopic || selectedTopic?.name || 'Convolutional Neural Networks (CNN)';
       setTopicInput(activeTopic);
       generateGraphForTopic(activeTopic);
     }
@@ -226,6 +228,11 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
 
       ctx.clearRect(0, 0, width, height);
 
+      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+
+      const accentColor = isLight ? '#102542' : '#D6C8DF';
+      const edgeDefaultColor = isLight ? '#64748B' : '#94A3B8';
+
       // 3D Rotation Matrix Coefficients
       const cosY = Math.cos(localRotY);
       const sinY = Math.sin(localRotY);
@@ -234,14 +241,11 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
 
       // Project Nodes into 2D Screen Space
       const projectedNodes = graphData.nodes.map((node) => {
-        // Rotate Y
         const x1 = node.x * cosY - node.z * sinY;
         const z1 = node.z * cosY + node.x * sinY;
-        // Rotate X
         const y1 = node.y * cosX - z1 * sinX;
         const z2 = z1 * cosX + node.y * sinX;
 
-        // Perspective scale factor
         const fov = 450 * zoomLevel;
         const perspective = fov / (fov + z2 + 350);
 
@@ -256,6 +260,28 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
           projZ: z2
         };
       });
+
+      // 2D Screen Space Collision Avoidance (Pushes overlapping card labels apart)
+      for (let i = 0; i < projectedNodes.length; i++) {
+        for (let j = i + 1; j < projectedNodes.length; j++) {
+          const n1 = projectedNodes[i];
+          const n2 = projectedNodes[j];
+          const dx = n2.projX - n1.projX;
+          const dy = n2.projY - n1.projY;
+          const minDistX = 120;
+          const minDistY = 32;
+
+          if (Math.abs(dx) < minDistX && Math.abs(dy) < minDistY) {
+            const overlapX = (minDistX - Math.abs(dx)) * 0.5 * (dx >= 0 ? 1 : -1);
+            const overlapY = (minDistY - Math.abs(dy)) * 0.5 * (dy >= 0 ? 1 : -1);
+
+            n1.projX -= overlapX;
+            n1.projY -= overlapY;
+            n2.projX += overlapX;
+            n2.projY += overlapY;
+          }
+        }
+      }
 
       // Sort nodes back-to-front (Painter's algorithm for Z-depth)
       projectedNodes.sort((a, b) => b.projZ - a.projZ);
@@ -274,12 +300,12 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         ctx.lineTo(toNode.projX!, toNode.projY!);
 
         if (isConnectedToSelected || isConnectedToHovered) {
-          ctx.strokeStyle = '#51D9FD';
+          ctx.strokeStyle = accentColor;
           ctx.lineWidth = 2.5 * fromNode.projScale!;
           ctx.setLineDash([]);
         } else {
-          ctx.strokeStyle = 'rgba(81, 217, 253, 0.25)';
-          ctx.lineWidth = 1 * fromNode.projScale!;
+          ctx.strokeStyle = edgeDefaultColor;
+          ctx.lineWidth = 1.5 * fromNode.projScale!;
           if (edge.relation === 'mitigates' || edge.relation === 'prevents_decay') {
             ctx.setLineDash([4, 4]);
           } else {
@@ -293,62 +319,70 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         const midY = (fromNode.projY! + toNode.projY!) / 2;
 
         if (isConnectedToSelected || isConnectedToHovered) {
-          ctx.fillStyle = 'rgba(0, 39, 43, 0.85)';
-          ctx.strokeStyle = '#51D9FD';
-          ctx.lineWidth = 1;
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 42, 0.95)';
+          ctx.strokeStyle = accentColor;
+          ctx.lineWidth = 1.5;
           ctx.beginPath();
-          ctx.roundRect(midX - 30, midY - 8, 60, 16, 4);
+          ctx.roundRect(midX - 32, midY - 9, 64, 18, 6);
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = '#51D9FD';
-          ctx.font = '8px monospace';
+          ctx.fillStyle = isLight ? '#0F172A' : '#F8FAFC';
+          ctx.font = 'bold 9px monospace';
           ctx.textAlign = 'center';
           ctx.fillText(edge.relation, midX, midY + 3);
         }
       });
 
-      // Render 3D Nodes
+      // Render 3D Nodes as Direct Text Cards (NO ROUND CIRCLES!)
       projectedNodes.forEach((node) => {
         const isSelected = selectedNode?.id === node.id;
         const isHovered = hoveredNode?.id === node.id;
         const isCore = node.type === 'core';
 
-        const baseRadius = isCore ? 30 : isSelected || isHovered ? 20 : 14;
-        const radius = baseRadius * node.projScale!;
-
         ctx.save();
         ctx.translate(node.projX!, node.projY!);
 
-        // Outer Glow Ring
-        ctx.beginPath();
-        ctx.arc(0, 0, radius + 8, 0, Math.PI * 2);
-        ctx.fillStyle = isCore
-          ? 'rgba(81, 217, 253, 0.35)'
-          : isSelected || isHovered
-          ? 'rgba(81, 217, 253, 0.25)'
-          : 'rgba(81, 217, 253, 0.08)';
-        ctx.fill();
+        const labelText = node.label.length > 22 ? `${node.label.substring(0, 20)}...` : node.label;
+        ctx.font = isCore
+          ? `bold ${Math.max(10, Math.round(11 * node.projScale!))}px sans-serif`
+          : `bold ${Math.max(8, Math.round(9 * node.projScale!))}px sans-serif`;
 
-        // Node Circle Body
+        const textMetrics = ctx.measureText(labelText);
+        const padX = isCore ? 10 : 7;
+        const padY = isCore ? 5 : 3.5;
+        const bgWidth = textMetrics.width + padX * 2;
+        const bgHeight = (isCore ? 12 : 10) + padY * 2;
+
+        // Card Pill Body (Direct Node Container)
         ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.fillStyle = isCore
-          ? '#51D9FD'
-          : isSelected
-          ? 'rgba(81, 217, 253, 0.85)'
-          : 'rgba(0, 39, 43, 0.9)';
-        ctx.strokeStyle = isCore || isSelected || isHovered ? '#51D9FD' : 'rgba(81, 217, 253, 0.35)';
-        ctx.lineWidth = isCore ? 3 : 1.5;
+        ctx.roundRect(-bgWidth / 2, -bgHeight / 2, bgWidth, bgHeight, isCore ? 8 : 6);
+
+        if (isCore) {
+          ctx.fillStyle = isLight ? '#102542' : '#8B5CF6';
+          ctx.strokeStyle = isLight ? '#2563EB' : '#D6C8DF';
+          ctx.lineWidth = 2;
+        } else if (isSelected || isHovered) {
+          ctx.fillStyle = isLight ? '#2563EB' : '#38BDF8';
+          ctx.strokeStyle = isLight ? '#1D4ED8' : '#7DD3FC';
+          ctx.lineWidth = 1.8;
+        } else {
+          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(15, 23, 42, 0.95)';
+          ctx.strokeStyle = isLight ? '#CBD5E1' : '#334155';
+          ctx.lineWidth = 1.2;
+        }
+
         ctx.fill();
         ctx.stroke();
 
-        // Node Label Text
-        ctx.fillStyle = isCore ? '#00272B' : '#51D9FD';
-        ctx.font = `${Math.max(9, Math.round(10 * node.projScale!))}px sans-serif`;
+        // Card Text Label
+        ctx.fillStyle = isCore || isSelected || isHovered
+          ? '#FFFFFF'
+          : (isLight ? '#0F172A' : '#F8FAFC');
+
         ctx.textAlign = 'center';
-        const labelText = node.label.length > 20 ? `${node.label.substring(0, 18)}...` : node.label;
-        ctx.fillText(labelText, 0, 4);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(labelText, 0, 1);
 
         ctx.restore();
       });
@@ -429,9 +463,9 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-lg animate-fade-in">
-      <div className="w-full max-w-6xl h-[88vh] bg-[var(--card-bg)] border border-[var(--border-subtle)] rounded-2xl shadow-2xl flex flex-col overflow-hidden glass-panel">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4 md:p-6 bg-black/80 backdrop-blur-xl animate-fade-in">
+      <div className="w-full max-w-7xl h-[92vh] bg-[var(--card-bg)] border border-[var(--border-subtle)] rounded-2xl shadow-2xl flex flex-col overflow-hidden glass-panel">
         {/* Header Bar */}
         <div className="px-5 py-3 border-b border-[var(--border-subtle)] flex flex-wrap items-center justify-between gap-3 bg-[var(--glass-bg)]/60">
           <div className="flex items-center gap-2.5">
@@ -440,26 +474,57 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-base text-[var(--text-primary)] flex items-center gap-2">
-                Second Brain — 3D Interactive Knowledge Graph
+                Second Brain — AI Knowledge Suite
                 <span className="text-[9px] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] font-mono font-bold px-2 py-0.5 rounded-full border border-[var(--border-subtle)] uppercase">
-                  3D Orbit Engine
+                  {modalView === 'graph' ? '3D Orbit Engine' : 'Sequential Timeline'}
                 </span>
               </h3>
               <p className="text-[10px] text-[var(--text-secondary)]">
-                Dense multi-tiered 3D constellation of concepts, formulas & neural dependencies
+                {modalView === 'graph'
+                  ? 'Dense multi-tiered 3D constellation of concepts, formulas & neural dependencies'
+                  : 'AI-generated milestone learning roadmap & estimated execution timeline'}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-xl border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] transition-all cursor-pointer"
-          >
-            <X size={18} />
-          </button>
+          {/* View Mode Switcher Button */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-[var(--accent-primary-soft)] p-1 rounded-xl border border-[var(--border-subtle)]">
+              <button
+                onClick={() => setModalView('graph')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  modalView === 'graph'
+                    ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] shadow-md'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                <Network className="w-3.5 h-3.5" />
+                <span>3D Graphical View</span>
+              </button>
+
+              <button
+                onClick={() => setModalView('roadmap')}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  modalView === 'roadmap'
+                    ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] shadow-md'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>Timeline Roadmap</span>
+              </button>
+            </div>
+
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-xl border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] transition-all cursor-pointer shadow-sm ml-2"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
-        {/* Topic Search & 3D Camera Toolbar */}
+        {/* Topic Search & Controls Toolbar */}
         <div className="p-3 bg-[var(--glass-bg)]/40 border-b border-[var(--border-subtle)] flex flex-wrap items-center justify-between gap-2">
           {/* Input */}
           <div className="flex-1 min-w-[280px] relative flex items-center">
@@ -469,7 +534,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
               value={topicInput}
               onChange={(e) => setTopicInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && generateGraphForTopic(topicInput)}
-              placeholder="Enter topic to construct 3D Second Brain (e.g. RNN, Quantum Computing, Transformer Attention)..."
+              placeholder="Enter topic to construct 3D Second Brain & Roadmap (e.g. RNN, Quantum Computing, LLMs)..."
               className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded-xl pl-9 pr-4 py-1.5 text-xs text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:border-[var(--accent-primary)]"
             />
           </div>
@@ -484,148 +549,437 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
               {isGenerating ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Constructing 3D Graph...</span>
+                  <span>Generating AI Suite...</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Generate 3D Graph</span>
+                  <span>Generate Graph & Roadmap</span>
                 </>
               )}
             </button>
 
-            <div className="h-5 w-[1px] bg-[var(--border-subtle)] mx-1" />
+            {modalView === 'graph' && (
+              <>
+                <div className="h-5 w-[1px] bg-[var(--border-subtle)] mx-1" />
 
-            {/* Auto Rotate Toggle */}
-            <button
-              onClick={() => setAutoRotate(!autoRotate)}
-              className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
-                autoRotate
-                  ? 'bg-[var(--accent-primary-soft)] border-[var(--accent-primary)] text-[var(--accent-primary)]'
-                  : 'bg-[var(--glass-bg)] border-[var(--border-subtle)] text-[var(--text-secondary)]'
-              }`}
-              title={autoRotate ? "Pause 3D Auto-Rotation" : "Start 3D Auto-Rotation"}
-            >
-              {autoRotate ? <Pause size={15} /> : <Play size={15} />}
-            </button>
+                {/* Auto Rotate Toggle */}
+                <button
+                  onClick={() => setAutoRotate(!autoRotate)}
+                  className={`p-1.5 rounded-lg border transition-all cursor-pointer ${
+                    autoRotate
+                      ? 'bg-[var(--accent-primary-soft)] border-[var(--accent-primary)] text-[var(--accent-primary)]'
+                      : 'bg-[var(--glass-bg)] border-[var(--border-subtle)] text-[var(--text-secondary)]'
+                  }`}
+                  title={autoRotate ? "Pause 3D Auto-Rotation" : "Start 3D Auto-Rotation"}
+                >
+                  {autoRotate ? <Pause size={15} /> : <Play size={15} />}
+                </button>
 
-            {/* Reset Camera */}
-            <button
-              onClick={() => {
-                setRotX(0.2);
-                setRotY(0.4);
-                setZoomLevel(1.0);
-              }}
-              className="p-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] transition-all cursor-pointer"
-              title="Reset 3D View"
-            >
-              <RotateCcw size={15} />
-            </button>
+                {/* Reset Camera */}
+                <button
+                  onClick={() => {
+                    setRotX(0.2);
+                    setRotY(0.4);
+                    setZoomLevel(1.0);
+                  }}
+                  className="p-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] transition-all cursor-pointer"
+                  title="Reset 3D View"
+                >
+                  <RotateCcw size={15} />
+                </button>
 
-            {/* Zoom Controls */}
-            <button
-              onClick={() => setZoomLevel((z) => Math.min(2.0, z + 0.15))}
-              className="p-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
-              title="Zoom In 3D Space"
-            >
-              <ZoomIn size={15} />
-            </button>
+                {/* Zoom Controls */}
+                <button
+                  onClick={() => setZoomLevel((z) => Math.min(2.0, z + 0.15))}
+                  className="p-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+                  title="Zoom In 3D Space"
+                >
+                  <ZoomIn size={15} />
+                </button>
 
-            <button
-              onClick={() => setZoomLevel((z) => Math.max(0.5, z - 0.15))}
-              className="p-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
-              title="Zoom Out 3D Space"
-            >
-              <ZoomOut size={15} />
-            </button>
-          </div>
-        </div>
-
-        {/* Main 3D Canvas & Detail Panel */}
-        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
-          {/* Left/Center: Interactive 3D Canvas Universe */}
-          <div className="flex-1 bg-[var(--bg-app)] relative flex items-center justify-center overflow-hidden">
-            <canvas
-              ref={canvasRef}
-              width={750}
-              height={500}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onClick={handleCanvasClick}
-              className="w-full h-full cursor-grab active:cursor-grabbing select-none"
-            />
-            <div className="absolute bottom-3 left-3 bg-[var(--glass-bg)]/80 border border-[var(--border-subtle)] rounded-lg px-2.5 py-1 text-[9px] font-mono text-[var(--text-secondary)] pointer-events-none">
-              Drag mouse to rotate 3D space | Click node to inspect details
-            </div>
-          </div>
-
-          {/* Right Panel: Selected 3D Node Deep Analysis */}
-          <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-[var(--border-subtle)] bg-[var(--glass-bg)]/40 p-4 space-y-4 overflow-y-auto">
-            {selectedNode ? (
-              <div className="space-y-3 animate-fade-in">
-                <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-2 text-[var(--accent-primary)]">
-                  <BookOpen className="w-4 h-4" />
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
-                    {selectedNode.tier === 0 ? 'Core 3D Concept' : `Tier ${selectedNode.tier} Sub-Node`}
-                  </h4>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-bold text-[var(--text-primary)] leading-snug">
-                    {selectedNode.label}
-                  </h3>
-                  <span className="text-[8px] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] font-mono font-medium px-2 py-0.5 rounded-full border border-[var(--border-subtle)] uppercase mt-1 inline-block">
-                    Node ID: {selectedNode.id}
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--border-subtle)] text-xs text-[var(--text-primary)] leading-relaxed space-y-2">
-                  <span className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">
-                    AI 3D Deep Concept Analysis
-                  </span>
-                  <p>{selectedNode.summary}</p>
-                </div>
-
-                {/* 3D Connected Network Links */}
-                {graphData && (
-                  <div className="space-y-1.5 pt-2 border-t border-[var(--border-subtle)]">
-                    <span className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">
-                      Connected 3D Pathways
-                    </span>
-                    <div className="space-y-1">
-                      {graphData.edges
-                        .filter((e) => e.from === selectedNode.id || e.to === selectedNode.id)
-                        .map((edge, idx) => {
-                          const otherId = edge.from === selectedNode.id ? edge.to : edge.from;
-                          const otherNode = graphData.nodes.find((n) => n.id === otherId);
-                          return (
-                            <div
-                              key={idx}
-                              onClick={() => otherNode && setSelectedNode(otherNode)}
-                              className="flex items-center justify-between p-2 rounded-lg bg-[var(--glass-bg)] border border-[var(--border-subtle)] text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] cursor-pointer transition-all"
-                            >
-                              <span className="font-mono text-[var(--accent-primary)]">{edge.relation}</span>
-                              <div className="flex items-center gap-1">
-                                <span className="truncate max-w-[100px]">{otherNode?.label}</span>
-                                <ArrowRight className="w-3 h-3 text-[var(--accent-primary)]" />
-                              </div>
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 text-[var(--text-secondary)]">
-                <Info className="w-6 h-6 text-[var(--accent-primary)]" />
-                <p className="text-xs font-medium">Click on any 3D node in the constellation to inspect concept breakdown.</p>
-              </div>
+                <button
+                  onClick={() => setZoomLevel((z) => Math.max(0.5, z - 0.15))}
+                  className="p-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+                  title="Zoom Out 3D Space"
+                >
+                  <ZoomOut size={15} />
+                </button>
+              </>
             )}
           </div>
         </div>
+
+        {/* Modal Main Body */}
+        {modalView === 'roadmap' ? (
+          /* PRODUCTION INTERACTIVE ROADMAP.SH TREE VIEW */
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+            {/* Left/Center: Interactive Branch Tree & Progress Bar */}
+            <div className="flex-1 bg-[var(--bg-app)] p-5 md:p-6 overflow-y-auto space-y-5">
+              {/* Overall Completion Percentage Header Bar */}
+              <div className="p-4 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-subtle)] shadow-sm space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <Trophy className="w-5 h-5 text-[var(--accent-primary)] animate-bounce" />
+                    <div>
+                      <h4 className="font-extrabold text-sm text-[var(--text-primary)]">
+                        Mastery Completion: <span className="text-[var(--accent-primary)] font-mono">{completionPercentage}%</span>
+                      </h4>
+                      <p className="text-[10px] text-[var(--text-secondary)]">
+                        {completedCount} of {totalRoadmapNodes} modules mastered in {graphData?.topic || topicInput}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleMarkAllCompleted}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[var(--border-subtle)] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] hover:border-[var(--accent-primary)] transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <CheckSquare size={12} />
+                      <span>Mark All</span>
+                    </button>
+                    <button
+                      onClick={handleResetProgress}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-bold border border-[var(--border-subtle)] bg-[var(--glass-bg)] text-[var(--text-secondary)] hover:text-rose-500 hover:border-rose-500 transition-all cursor-pointer flex items-center gap-1"
+                    >
+                      <RotateCcw size={12} />
+                      <span>Reset</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Smooth Animated Progress Bar */}
+                <div className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] h-3 rounded-full overflow-hidden p-0.5 shadow-inner">
+                  <div
+                    className="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-full rounded-full transition-all duration-500 shadow-sm"
+                    style={{ width: `${completionPercentage}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Roadmap.sh Legend Bar */}
+              <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-[var(--glass-bg)]/60 border border-[var(--border-subtle)] text-[10px]">
+                <div className="flex flex-wrap items-center gap-3 font-semibold">
+                  <span className="flex items-center gap-1 text-purple-400 font-bold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" /> Personal Recommendation
+                  </span>
+                  <span className="flex items-center gap-1 text-emerald-400 font-bold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" /> Alternative Option
+                  </span>
+                  <span className="flex items-center gap-1 text-slate-400 font-bold">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400 inline-block" /> Optional / Advanced
+                  </span>
+                </div>
+                <span className="text-[9px] font-mono text-[var(--text-secondary)]">Click checkbox to track your progress</span>
+              </div>
+
+              {/* Interactive Roadmap Tree Nodes (roadmap.sh style vertical spine & branches) */}
+              <div className="relative max-w-3xl mx-auto space-y-8 py-2">
+                {(graphData?.roadmap?.phases || []).map((phase: RoadmapPhase) => {
+                  const isPhaseCompleted = completedNodeIds.has(phase.id);
+                  return (
+                    <div key={phase.id} className="space-y-4 relative">
+                      {/* Central Spine Main Phase Header Box */}
+                      <div
+                        onClick={() => setSelectedRoadmapItem({
+                          id: phase.id,
+                          title: phase.title,
+                          type: 'recommended',
+                          summary: phase.summary,
+                          phaseTitle: `Phase ${phase.phase_number}`,
+                          project: phase.milestone_project
+                        })}
+                        className={`p-4 rounded-2xl border-2 transition-all cursor-pointer shadow-lg flex items-center justify-between gap-4 ${
+                          isPhaseCompleted
+                            ? 'bg-emerald-500/10 border-emerald-500 text-emerald-300'
+                            : 'bg-[#FFEB3B]/10 border-[#FBC02D] text-[var(--text-primary)] hover:border-[var(--accent-primary)]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {/* Interactive Checkbox */}
+                          <button
+                            onClick={(e) => toggleNodeCompletion(phase.id, e)}
+                            className="p-1 rounded-lg hover:scale-110 transition-transform cursor-pointer"
+                            title={isPhaseCompleted ? "Mark incomplete" : "Mark completed"}
+                          >
+                            {isPhaseCompleted ? (
+                              <CheckCircle2 className="w-6 h-6 text-emerald-400 fill-emerald-500/20" />
+                            ) : (
+                              <Circle className="w-6 h-6 text-[#FBC02D] hover:text-emerald-400 transition-colors" />
+                            )}
+                          </button>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold font-mono uppercase bg-[#FBC02D] text-black">
+                                Phase {phase.phase_number}
+                              </span>
+                              <span className="text-xs font-bold font-mono text-[var(--accent-primary)] bg-[var(--accent-primary-soft)] px-2 py-0.5 rounded-md border border-[var(--border-subtle)]">
+                                ⏱️ {phase.duration}
+                              </span>
+                            </div>
+                            <h3 className={`font-bold text-sm mt-1 ${isPhaseCompleted ? 'line-through opacity-80' : ''}`}>
+                              {phase.title}
+                            </h3>
+                          </div>
+                        </div>
+
+                        <span className="text-[10px] font-bold text-[var(--text-secondary)] bg-[var(--card-bg)] px-2.5 py-1 rounded-lg border border-[var(--border-subtle)] whitespace-nowrap">
+                          {phase.status}
+                        </span>
+                      </div>
+
+                      {/* Sections under phase */}
+                      {phase.sections && phase.sections.length > 0 && (
+                        <div className="pl-6 space-y-4 border-l-2 border-dashed border-[#FBC02D]/40 ml-6">
+                          {phase.sections.map((sec: RoadmapSection) => {
+                            const isSecCompleted = completedNodeIds.has(sec.id);
+                            return (
+                              <div key={sec.id} className="space-y-2">
+                                {/* Spine Section Node Box */}
+                                <div
+                                  onClick={() => setSelectedRoadmapItem({
+                                    id: sec.id,
+                                    title: sec.title,
+                                    type: sec.type || 'recommended',
+                                    summary: sec.summary || `Section topic in Phase ${phase.phase_number}`,
+                                    phaseTitle: `Phase ${phase.phase_number}: ${phase.title}`
+                                  })}
+                                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                                    isSecCompleted
+                                      ? 'bg-emerald-500/10 border-emerald-500 text-emerald-300'
+                                      : sec.type === 'alternative'
+                                      ? 'bg-emerald-500/5 border-emerald-500/40 text-[var(--text-primary)] hover:border-emerald-500'
+                                      : 'bg-[var(--card-bg)] border-[var(--border-subtle)] text-[var(--text-primary)] hover:border-[var(--accent-primary)]'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5">
+                                    <button
+                                      onClick={(e) => toggleNodeCompletion(sec.id, e)}
+                                      className="hover:scale-110 transition-transform cursor-pointer"
+                                    >
+                                      {isSecCompleted ? (
+                                        <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+                                      ) : (
+                                        <Circle className="w-5 h-5 text-[var(--text-secondary)] hover:text-emerald-400 transition-colors" />
+                                      )}
+                                    </button>
+                                    <h4 className={`text-xs font-bold ${isSecCompleted ? 'line-through opacity-70' : ''}`}>
+                                      {sec.title}
+                                    </h4>
+                                  </div>
+                                  <span className="text-[9px] font-mono font-bold px-2 py-0.5 rounded-full border border-[var(--border-subtle)] uppercase bg-[var(--accent-primary-soft)] text-[var(--accent-primary)]">
+                                    {sec.type || 'Recommended'}
+                                  </span>
+                                </div>
+
+                                {/* Sub-items branching right */}
+                                {sec.sub_items && sec.sub_items.length > 0 && (
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-4">
+                                    {sec.sub_items.map((sub: RoadmapSubItem) => {
+                                      const isSubCompleted = completedNodeIds.has(sub.id);
+                                      return (
+                                        <div
+                                          key={sub.id}
+                                          onClick={() => setSelectedRoadmapItem({
+                                            id: sub.id,
+                                            title: sub.title,
+                                            type: sub.type || 'recommended',
+                                            summary: sub.summary || `Detailed sub-topic under ${sec.title}`,
+                                            phaseTitle: `Section: ${sec.title}`
+                                          })}
+                                          className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 text-xs ${
+                                            isSubCompleted
+                                              ? 'bg-emerald-500/10 border-emerald-500/60 text-emerald-300'
+                                              : 'bg-[var(--glass-bg)] border-[var(--border-subtle)] text-[var(--text-primary)] hover:border-[var(--accent-primary)]'
+                                          }`}
+                                        >
+                                          <div className="flex items-center gap-2 truncate">
+                                            <button
+                                              onClick={(e) => toggleNodeCompletion(sub.id, e)}
+                                              className="hover:scale-110 transition-transform cursor-pointer shrink-0"
+                                            >
+                                              {isSubCompleted ? (
+                                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                              ) : (
+                                                <Circle className="w-4 h-4 text-[var(--text-secondary)] hover:text-emerald-400 transition-colors" />
+                                              )}
+                                            </button>
+                                            <span className={`truncate font-medium ${isSubCompleted ? 'line-through opacity-70' : ''}`}>
+                                              {sub.title}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Right Panel: Selected Roadmap Node Detail Inspector */}
+            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-[var(--border-subtle)] bg-[var(--glass-bg)]/40 p-4 space-y-4 overflow-y-auto">
+              {selectedRoadmapItem ? (
+                <div className="space-y-4 animate-fade-in text-[var(--text-primary)]">
+                  <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+                    <div className="flex items-center gap-2 text-[var(--accent-primary)]">
+                      <Compass className="w-4 h-4" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                        Roadmap Inspector
+                      </h4>
+                    </div>
+                    <button
+                      onClick={(e) => toggleNodeCompletion(selectedRoadmapItem.id, e)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                        completedNodeIds.has(selectedRoadmapItem.id)
+                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400'
+                          : 'bg-[var(--accent-primary-soft)] border-[var(--border-subtle)] text-[var(--accent-primary)]'
+                      }`}
+                    >
+                      <CheckCircle2 size={12} />
+                      <span>{completedNodeIds.has(selectedRoadmapItem.id) ? 'Completed' : 'Mark Done'}</span>
+                    </button>
+                  </div>
+
+                  <div>
+                    <span className="text-[9px] font-mono text-[var(--text-secondary)] block mb-1">
+                      {selectedRoadmapItem.phaseTitle || 'Roadmap Module'}
+                    </span>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)] leading-snug">
+                      {selectedRoadmapItem.title}
+                    </h3>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-[var(--card-bg)] border border-[var(--border-subtle)] text-xs text-[var(--text-primary)] leading-relaxed space-y-2">
+                    <span className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">
+                      Module Concept Breakdown
+                    </span>
+                    <p>{selectedRoadmapItem.summary}</p>
+                  </div>
+
+                  {selectedRoadmapItem.project && (
+                    <div className="p-3.5 rounded-xl bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] text-xs space-y-1.5">
+                      <span className="text-[10px] font-extrabold uppercase text-[var(--accent-primary)] tracking-wider flex items-center gap-1">
+                        🎯 Milestone Hands-On Task
+                      </span>
+                      <p className="font-bold text-[var(--text-primary)] leading-snug">{selectedRoadmapItem.project}</p>
+                    </div>
+                  )}
+
+                  <div className="pt-2">
+                    <button
+                      onClick={() => alert(`Asking AI Tutor about '${selectedRoadmapItem.title}'...`)}
+                      className="w-full py-2 px-3 rounded-xl bg-[var(--accent-primary)] text-[var(--text-inverse)] text-xs font-bold flex items-center justify-center gap-2 shadow hover:opacity-90 transition-all cursor-pointer"
+                    >
+                      <Sparkles size={14} />
+                      <span>Ask AI Tutor About This Node</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 text-[var(--text-secondary)]">
+                  <Info className="w-6 h-6 text-[var(--accent-primary)]" />
+                  <p className="text-xs font-medium">Click on any node in the roadmap tree to view deep concept breakdown & project details.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          /* 3D GRAPHICAL CANVAS UNIVERSE VIEW */
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+            {/* Left/Center: Interactive 3D Canvas Universe */}
+            <div className="flex-1 bg-[var(--bg-app)] relative flex items-center justify-center overflow-hidden">
+              <canvas
+                ref={canvasRef}
+                width={750}
+                height={500}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onClick={handleCanvasClick}
+                className="w-full h-full cursor-grab active:cursor-grabbing select-none"
+              />
+              <div className="absolute bottom-3 left-3 bg-[var(--glass-bg)]/80 border border-[var(--border-subtle)] rounded-lg px-2.5 py-1 text-[9px] font-mono text-[var(--text-secondary)] pointer-events-none">
+                Drag mouse to rotate 3D space | Click node to inspect details
+              </div>
+            </div>
+
+            {/* Right Panel: Selected 3D Node Deep Analysis */}
+            <div className="w-full md:w-80 border-t md:border-t-0 md:border-l border-[var(--border-subtle)] bg-[var(--glass-bg)]/40 p-4 space-y-4 overflow-y-auto">
+              {selectedNode ? (
+                <div className="space-y-3 animate-fade-in">
+                  <div className="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-2 text-[var(--accent-primary)]">
+                    <BookOpen className="w-4 h-4" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">
+                      {selectedNode.tier === 0 ? 'Core 3D Concept' : `Tier ${selectedNode.tier} Sub-Node`}
+                    </h4>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-bold text-[var(--text-primary)] leading-snug">
+                      {selectedNode.label}
+                    </h3>
+                    <span className="text-[8px] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] font-mono font-medium px-2 py-0.5 rounded-full border border-[var(--border-subtle)] uppercase mt-1 inline-block">
+                      Node ID: {selectedNode.id}
+                    </span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-[var(--card-bg)] border border-[var(--border-subtle)] text-xs text-[var(--text-primary)] leading-relaxed space-y-2">
+                    <span className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">
+                      AI 3D Deep Concept Analysis
+                    </span>
+                    <p>{selectedNode.summary}</p>
+                  </div>
+
+                  {/* 3D Connected Network Links */}
+                  {graphData && (
+                    <div className="space-y-1.5 pt-2 border-t border-[var(--border-subtle)]">
+                      <span className="text-[9px] font-bold text-[var(--text-secondary)] uppercase tracking-wider block">
+                        Connected 3D Pathways
+                      </span>
+                      <div className="space-y-1">
+                        {graphData.edges
+                          .filter((e) => e.from === selectedNode.id || e.to === selectedNode.id)
+                          .map((edge, idx) => {
+                            const otherId = edge.from === selectedNode.id ? edge.to : edge.from;
+                            const otherNode = graphData.nodes.find((n) => n.id === otherId);
+                            return (
+                              <div
+                                key={idx}
+                                onClick={() => otherNode && setSelectedNode(otherNode)}
+                                className="flex items-center justify-between p-2 rounded-lg bg-[var(--glass-bg)] border border-[var(--border-subtle)] text-[10px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)] cursor-pointer transition-all"
+                              >
+                                <span className="font-mono text-[var(--accent-primary)]">{edge.relation}</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="truncate max-w-[100px]">{otherNode?.label}</span>
+                                  <ArrowRight className="w-3 h-3 text-[var(--accent-primary)]" />
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-2 text-[var(--text-secondary)]">
+                  <Info className="w-6 h-6 text-[var(--accent-primary)]" />
+                  <p className="text-xs font-medium">Click on any 3D node in the constellation to inspect concept breakdown.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

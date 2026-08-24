@@ -47,9 +47,13 @@ interface EduOSStore {
 
   // Dynamic Management Actions
   addTeacher: (name: string, employeeId: string) => void;
+  deleteTeacher: (id: string) => void;
   addStudent: (name: string, rollNumber: string) => void;
+  deleteStudent: (id: string) => void;
   addSubject: (code: string, name: string) => void;
+  deleteSubject: (id: string) => void;
   addTopic: (subjectId: string, name: string, description?: string) => void;
+  deleteTopic: (subjectId: string, topicId: string) => void;
 }
 
 const defaultSubjects: AcademicSubject[] = [
@@ -227,6 +231,66 @@ export const useEduOSStore = create<EduOSStore>((set) => ({
       subjects: updatedSubjects,
       selectedSubject: updatedSelectedSubject,
       selectedTopic: newAddedTopic
+    };
+  }),
+
+  // Delete Teacher
+  deleteTeacher: (id) => set((state) => {
+    const updated = state.teachers.filter(t => t.id !== id);
+    const activeTeacher = updated.length > 0 ? updated[0] : null;
+    return {
+      teachers: updated,
+      user: state.user && state.user.role === 'teacher' && activeTeacher
+        ? { ...state.user, fullName: activeTeacher.name, employeeId: activeTeacher.employeeId }
+        : state.user
+    };
+  }),
+
+  // Delete Student
+  deleteStudent: (id) => set((state) => {
+    const updated = state.students.filter(s => s.id !== id);
+    const activeStudent = updated.length > 0 ? updated[0] : null;
+    return {
+      students: updated,
+      user: state.user && state.user.role === 'student' && activeStudent
+        ? { ...state.user, fullName: activeStudent.name, rollNumber: activeStudent.rollNumber }
+        : state.user
+    };
+  }),
+
+  // Delete Subject
+  deleteSubject: (id) => set((state) => {
+    const updated = state.subjects.filter(s => s.id !== id);
+    const newSelectedSubj = updated.length > 0 ? updated[0] : null;
+    const newSelectedTop = newSelectedSubj?.units[0]?.topics[0] || null;
+    return {
+      subjects: updated,
+      selectedSubject: state.selectedSubject?.id === id ? newSelectedSubj : state.selectedSubject,
+      selectedTopic: state.selectedSubject?.id === id ? newSelectedTop : state.selectedTopic
+    };
+  }),
+
+  // Delete Topic
+  deleteTopic: (subjectId, topicId) => set((state) => {
+    const updatedSubjects = state.subjects.map((s) => {
+      if (s.id === subjectId) {
+        const updatedUnits = s.units.map((u) => ({
+          ...u,
+          topics: u.topics.filter(t => t.id !== topicId)
+        }));
+        return { ...s, units: updatedUnits };
+      }
+      return s;
+    });
+
+    const currentSubj = updatedSubjects.find(s => s.id === subjectId) || state.selectedSubject;
+    const remainingTopics = currentSubj?.units.flatMap(u => u.topics) || [];
+    const newSelectedTopic = remainingTopics.length > 0 ? remainingTopics[0] : null;
+
+    return {
+      subjects: updatedSubjects,
+      selectedSubject: currentSubj,
+      selectedTopic: state.selectedTopic?.id === topicId ? newSelectedTopic : state.selectedTopic
     };
   })
 }));

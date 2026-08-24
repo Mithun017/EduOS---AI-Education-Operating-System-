@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class GeminiProvider:
     name: str = "google_gemini"
-    priority: int = 3
+    priority: int = 2
 
     def __init__(self):
         self.api_key = settings.GOOGLE_GEMINI_API_KEY
@@ -27,23 +27,35 @@ class GeminiProvider:
             raise RuntimeError("Google Gemini provider not configured with valid API key")
 
         start_time = time.time()
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash-latest",
-            system_instruction=request.system_prompt if request.system_prompt else None
-        )
-
         contents = []
         for msg in request.messages:
             contents.append({"role": "user" if msg.role == "user" else "model", "parts": [msg.content]})
 
-        response = await model.generate_content_async(
-            contents=contents,
-            generation_config=genai.GenerationConfig(
-                temperature=request.temperature,
-                max_output_tokens=request.max_tokens
-            ),
-            stream=True
-        )
+        models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-1.5-pro"]
+        response = None
+        last_err = None
+
+        for model_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(
+                    model_name=model_name,
+                    system_instruction=request.system_prompt if request.system_prompt else None
+                )
+                response = await model.generate_content_async(
+                    contents=contents,
+                    generation_config=genai.GenerationConfig(
+                        temperature=request.temperature,
+                        max_output_tokens=request.max_tokens
+                    ),
+                    stream=True
+                )
+                break
+            except Exception as e:
+                last_err = e
+                continue
+
+        if not response:
+            raise RuntimeError(f"Gemini API model streaming failed: {last_err}")
 
         async for chunk in response:
             if chunk.text:

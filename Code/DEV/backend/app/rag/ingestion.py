@@ -3,8 +3,13 @@ import uuid
 import logging
 from typing import List, Dict, Any, Optional
 from fastapi import HTTPException, status, UploadFile
-import cloudinary
-import cloudinary.uploader
+try:
+    import cloudinary   #type: ignore # pyright: ignore
+    import cloudinary.uploader  # type: ignore # pyright: ignore
+    HAS_CLOUDINARY = True
+except ImportError:
+    cloudinary = None
+    HAS_CLOUDINARY = False
 
 from app.core.config import settings
 from app.db.models import KnowledgeChunk, Resource
@@ -27,7 +32,7 @@ def validate_upload_file(file: UploadFile, content: bytes):
     # 1. Size check
     if len(content) > MAX_FILE_SIZE_BYTES:
         raise FileValidationError(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f"File size exceeds maximum allowed limit of {MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB."
         )
 
@@ -53,13 +58,16 @@ def validate_upload_file(file: UploadFile, content: bytes):
         )
 
 def configure_cloudinary():
-    if settings.CLOUDINARY_CLOUD_NAME:
-        cloudinary.config(
-            cloud_name=settings.CLOUDINARY_CLOUD_NAME,
-            api_key=settings.CLOUDINARY_API_KEY,
-            api_secret=settings.CLOUDINARY_API_SECRET,
-            secure=True
-        )
+    if HAS_CLOUDINARY and settings.CLOUDINARY_CLOUD_NAME and settings.CLOUDINARY_CLOUD_NAME != "your_cloudinary_cloud_name_here":
+        try:
+            cloudinary.config(
+                cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+                api_key=settings.CLOUDINARY_API_KEY,
+                api_secret=settings.CLOUDINARY_API_SECRET,
+                secure=True
+            )
+        except Exception as e:
+            logger.warning(f"Cloudinary config error: {e}")
 
 # Initialize configuration
 configure_cloudinary()
@@ -79,7 +87,7 @@ async def upload_resource_file(
 
     storage_key = build_tenant_s3_key(institution_id, resource_id, file.filename or "resource.bin")
 
-    if settings.CLOUDINARY_CLOUD_NAME:
+    if HAS_CLOUDINARY and settings.CLOUDINARY_CLOUD_NAME and settings.CLOUDINARY_CLOUD_NAME != "your_cloudinary_cloud_name_here":
         try:
             # Upload raw file (handles PDFs, slides, text etc)
             cloudinary.uploader.upload(

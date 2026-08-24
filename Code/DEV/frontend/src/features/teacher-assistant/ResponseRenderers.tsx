@@ -193,30 +193,32 @@ export interface ChartData {
 }
 
 export const ChartCard: React.FC<{ data: ChartData }> = ({ data }) => {
-  const maxValue = Math.max(...data.series, 10);
-  const chartHeight = 120;
-  const padding = 20;
+  const minVal = Math.min(...data.series, 0);
+  const maxVal = Math.max(...data.series, 10);
+  const range = (maxVal - minVal) || 1;
+  const chartHeight = 180;
+  const padding = 25;
 
   return (
-    <div className="glass-panel-interactive p-6 space-y-4 animate-slide-up">
-      <div className="flex items-center gap-3 text-amber-400 border-b border-[var(--border-subtle)] pb-3">
-        <BarChart3 className="w-5 h-5" />
-        <h4 className="font-semibold text-lg text-[var(--text-primary)]">Topic Analysis Chart</h4>
+    <div className="glass-panel-interactive p-5 space-y-3 animate-slide-up w-full">
+      <div className="flex items-center gap-2.5 text-[var(--accent-primary)] border-b border-[var(--border-subtle)] pb-2.5">
+        <BarChart3 className="w-5 h-5 text-[var(--accent-primary)]" />
+        <h4 className="font-semibold text-base text-[var(--text-primary)]">Topic Analysis Chart</h4>
       </div>
 
-      <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--border-subtle)]">
+      <div className="bg-[var(--card-bg)] p-4 rounded-xl border border-[var(--border-subtle)] shadow-inner">
         {data.chart_type === 'bar' ? (
-          <div className="flex items-end justify-between h-[150px] px-4 pt-4 border-b border-[var(--border-subtle)]">
+          <div className="flex items-end justify-between h-[180px] px-4 pt-4 border-b border-[var(--border-subtle)]">
             {data.series.map((val, idx) => {
-              const heightPercent = (val / maxValue) * 100;
+              const heightPercent = ((val - minVal) / range) * 100;
               return (
                 <div key={idx} className="flex flex-col items-center flex-1 group">
                   <span className="text-[10px] text-[var(--text-secondary)] mb-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     {val}
                   </span>
                   <div 
-                    style={{ height: `${heightPercent}%` }}
-                    className="w-8 max-w-full rounded-t bg-gradient-to-t from-amber-600 to-amber-400 group-hover:from-amber-500 group-hover:to-amber-300 transition-all duration-300 shadow-md"
+                    style={{ height: `${Math.max(heightPercent, 4)}%` }}
+                    className="w-8 max-w-full rounded-t bg-gradient-to-t from-[var(--accent-primary)] to-[var(--text-secondary)] group-hover:brightness-125 transition-all duration-300 shadow-md"
                   />
                   <span className="text-[10px] text-[var(--text-secondary)] mt-2 truncate w-12 text-center">
                     {data.labels[idx]}
@@ -227,43 +229,51 @@ export const ChartCard: React.FC<{ data: ChartData }> = ({ data }) => {
           </div>
         ) : (
           /* Custom SVG Line Chart */
-          <div className="relative pt-4">
-            <svg viewBox="0 0 300 120" className="w-full h-[120px]">
+          <div className="relative pt-2">
+            <svg viewBox="0 0 300 180" className="w-full h-[180px] overflow-visible">
               {/* Draw grid lines */}
-              <line x1="0" y1="20" x2="300" y2="20" stroke="var(--border-subtle)" strokeWidth="1" />
-              <line x1="0" y1="60" x2="300" y2="60" stroke="var(--border-subtle)" strokeWidth="1" />
-              <line x1="0" y1="100" x2="300" y2="100" stroke="var(--border-subtle)" strokeWidth="1" />
+              <line x1="0" y1="30" x2="300" y2="30" stroke="var(--border-subtle)" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1="0" y1="90" x2="300" y2="90" stroke="var(--border-subtle)" strokeWidth="1" strokeDasharray="3 3" />
+              <line x1="0" y1="150" x2="300" y2="150" stroke="var(--border-subtle)" strokeWidth="1" strokeDasharray="3 3" />
 
               {/* Draw chart path */}
               <path
                 d={data.series
                   .map((val, idx) => {
-                    const x = (idx / (data.series.length - 1)) * 300;
-                    const y = chartHeight - padding - (val / maxValue) * (chartHeight - 2 * padding);
+                    const x = (idx / (data.series.length - 1 || 1)) * 300;
+                    const y = chartHeight - padding - ((val - minVal) / range) * (chartHeight - 2 * padding);
                     return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
                   })
                   .join(' ')}
                 fill="none"
                 stroke="var(--accent-primary)"
-                strokeWidth="2"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
 
               {/* Draw dots */}
               {data.series.map((val, idx) => {
-                const x = (idx / (data.series.length - 1)) * 300;
-                const y = chartHeight - padding - (val / maxValue) * (chartHeight - 2 * padding);
+                const x = (idx / (data.series.length - 1 || 1)) * 300;
+                const y = chartHeight - padding - ((val - minVal) / range) * (chartHeight - 2 * padding);
                 return (
                   <g key={idx} className="group cursor-pointer">
-                    <circle cx={x} cy={y} r="4" fill="var(--bg-app)" stroke="var(--accent-primary)" strokeWidth="2" />
-                    <circle cx={x} cy={y} r="8" fill="var(--accent-primary)" opacity="0.3" className="group-hover:opacity-100 transition-opacity" />
+                    <circle cx={x} cy={y} r="5" fill="var(--bg-app)" stroke="var(--accent-primary)" strokeWidth="2.5" />
+                    <circle cx={x} cy={y} r="10" fill="var(--accent-primary)" opacity="0.3" className="group-hover:opacity-100 transition-opacity" />
                   </g>
                 );
               })}
             </svg>
-            <div className="flex justify-between mt-2 px-1">
-              {data.labels.map((lbl, idx) => (
-                <span key={idx} className="text-[9px] text-[var(--text-secondary)]">{lbl}</span>
-              ))}
+            <div className="flex justify-between mt-3 px-1 border-t border-[var(--border-subtle)] pt-2">
+              {data.labels.map((lbl, idx) => {
+                // Filter labels if there are too many (e.g. > 8 items)
+                if (data.labels.length > 8 && idx % Math.ceil(data.labels.length / 6) !== 0 && idx !== data.labels.length - 1) {
+                  return null;
+                }
+                return (
+                  <span key={idx} className="text-[10px] font-mono font-medium text-[var(--text-secondary)]">{lbl}</span>
+                );
+              })}
             </div>
           </div>
         )}

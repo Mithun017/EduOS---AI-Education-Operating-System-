@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class GroqProvider:
     name: str = "groq"
-    priority: int = 2
+    priority: int = 1
 
     def __init__(self):
         self.api_key = settings.GROQ_API_KEY
@@ -31,15 +31,26 @@ class GroqProvider:
         for msg in request.messages:
             formatted_messages.append({"role": msg.role, "content": msg.content})
 
-        model_name = "llama-3.3-70b-versatile"
+        models_to_try = ["openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant", "llama3-70b-8192"]
+        response_stream = None
+        last_err = None
 
-        response_stream = await self._client.chat.completions.create(
-            model=model_name,
-            messages=formatted_messages,
-            temperature=request.temperature,
-            max_tokens=request.max_tokens,
-            stream=True
-        )
+        for model_name in models_to_try:
+            try:
+                response_stream = await self._client.chat.completions.create(
+                    model=model_name,
+                    messages=formatted_messages,
+                    temperature=request.temperature,
+                    max_tokens=request.max_tokens,
+                    stream=True
+                )
+                break
+            except Exception as e:
+                last_err = e
+                continue
+
+        if not response_stream:
+            raise RuntimeError(f"Groq API model streaming failed: {last_err}")
 
         async for chunk in response_stream:
             if chunk.choices and len(chunk.choices) > 0:

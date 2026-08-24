@@ -1,11 +1,12 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { getStroke } from 'perfect-freehand';
 import * as math from 'mathjs';
+import { X, GripHorizontal } from 'lucide-react';
 import { useEduOSStore } from '../../store/store';
 import { ShapeToolbar } from './ShapeToolbar';
 import { FormulaConfirmDialog } from './FormulaConfirmDialog';
 import { SecondBrainGraphModal } from './SecondBrainGraphModal';
-import { fetchCanvasSession, saveCanvasObjects, recognizeFormula } from '../../lib/api';
+import { fetchCanvasSession, saveCanvasObjects, recognizeFormula, searchWebForSelection, visualizeConceptForSelection } from '../../lib/api';
 import type { CanvasObject } from '../../lib/api';
 import { ChartCard } from '../teacher-assistant/ResponseRenderers';
 
@@ -34,6 +35,19 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [snapToGrid, setSnapToGrid] = useState(false);
+
+  // Floating Card Dragging State
+  const [draggingCardId, setDraggingCardId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const handleCardDragStart = (e: React.PointerEvent, objId: string, currentX: number, currentY: number) => {
+    e.stopPropagation();
+    setDraggingCardId(objId);
+    setDragOffset({
+      x: e.clientX - currentX,
+      y: e.clientY - currentY
+    });
+  };
 
   // Selection/Lasso state
   const [lassoStart, setLassoStart] = useState<Point | null>(null);
@@ -260,6 +274,23 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!canvasRef.current) return;
 
+    if (draggingCardId) {
+      const newX = Math.max(10, e.clientX - dragOffset.x);
+      const newY = Math.max(10, e.clientY - dragOffset.y);
+
+      setObjects(prev => prev.map(o => {
+        if (o.id === draggingCardId) {
+          const geom = JSON.parse(o.geometry_json);
+          return {
+            ...o,
+            geometry_json: JSON.stringify({ ...geom, x: Math.round(newX), y: Math.round(newY) })
+          };
+        }
+        return o;
+      }));
+      return;
+    }
+
     const coord = getCoordinatesFromEvent(e);
 
     if (activeTool === 'lasso' && lassoStart) {
@@ -294,6 +325,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const handlePointerUp = (e: React.PointerEvent<SVGSVGElement>) => {
     canvasRef.current?.releasePointerCapture(e.pointerId);
 
+    if (draggingCardId) {
+      setDraggingCardId(null);
+    }
+
     if (activeTool === 'lasso') {
       setLassoStart(null);
       setLassoEnd(null);
@@ -309,7 +344,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           type: recognized_as ? 'shape' : 'stroke',
           geometry_json: JSON.stringify(geometry),
           style_json: JSON.stringify({
-            color: document.documentElement.getAttribute('data-theme') === 'light' ? '#102542' : '#D2F535',
+            color: document.documentElement.getAttribute('data-theme') === 'light' ? '#102542' : '#D6C8DF',
             width: 3
           }),
           recognized_as: recognized_as,
@@ -398,6 +433,74 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     }
   };
 
+  const handleWebSearch = async () => {
+    if (selectedObjectIds.size === 0) return;
+    setIsRecognizing(true);
+    try {
+      const queryTopic = selectedTopic?.name || "Convolutional Neural Networks";
+      const data = await searchWebForSelection(user?.token || '', queryTopic);
+
+      const newCardObj: CanvasObject = {
+        id: `obj-${crypto.randomUUID()}`,
+        type: 'formula',
+        geometry_json: JSON.stringify({
+          card_type: 'web_search',
+          title: data.title || `Web Research: ${queryTopic}`,
+          summary: data.summary,
+          key_points: data.key_points || [],
+          sources: data.sources || [],
+          x: 120,
+          y: 60,
+          w: 540,
+          h: 380
+        }),
+        order_index: objects.length
+      };
+
+      const remaining = objects.filter(obj => !selectedObjectIds.has(obj.id));
+      pushToHistory([...remaining, newCardObj]);
+      setSelectedObjectIds(new Set());
+    } catch (err) {
+      console.error("Web search failed:", err);
+    } finally {
+      setIsRecognizing(false);
+    }
+  };
+
+  const handleVisualize = async () => {
+    if (selectedObjectIds.size === 0) return;
+    setIsRecognizing(true);
+    try {
+      const queryTopic = selectedTopic?.name || "Convolutional Neural Networks";
+      const data = await visualizeConceptForSelection(user?.token || '', queryTopic);
+
+      const newCardObj: CanvasObject = {
+        id: `obj-${crypto.randomUUID()}`,
+        type: 'formula',
+        geometry_json: JSON.stringify({
+          card_type: 'visualizer',
+          concept_title: data.concept_title || queryTopic,
+          definition: data.definition,
+          real_world_analogy: data.real_world_analogy,
+          components: data.components || [],
+          x: 140,
+          y: 70,
+          w: 540,
+          h: 380
+        }),
+        order_index: objects.length
+      };
+
+      const remaining = objects.filter(obj => !selectedObjectIds.has(obj.id));
+      pushToHistory([...remaining, newCardObj]);
+      setSelectedObjectIds(new Set());
+    } catch (err) {
+      console.error("Concept visualization failed:", err);
+    } finally {
+      setIsRecognizing(false);
+    }
+  };
+
   // 5. Plot Graph Flow (evaluates confirm-then-plot expressions client-side)
   const handleConfirmFormula = (finalFormula: string) => {
     setIsConfirmOpen(false);
@@ -439,10 +542,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           chart_type: 'line',
           labels,
           series,
-          x: 200, // Placement coords on SVG canvas
-          y: 100,
-          w: 300,
-          h: 220
+          x: 150, // Placement coords on SVG canvas
+          y: 80,
+          w: 520,
+          h: 360
         }),
         order_index: objects.length
       };
@@ -472,6 +575,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           onRedo={handleRedo}
           onClear={handleClear}
           onRecognize={handleRecognizeFormula}
+          onWebSearch={handleWebSearch}
+          onVisualize={handleVisualize}
           hasSelection={selectedObjectIds.size > 0}
           onOpenGraphicalView={() => setIsGraphicalViewOpen(true)}
         />
@@ -592,28 +697,196 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             }
           } else if (obj.type === 'formula') {
             const geom = JSON.parse(obj.geometry_json);
+            const cardWidth = Math.max(geom.w || 680, 680);
+            const cardHeight = Math.max(geom.h || 460, 460);
+
+            const removeCard = () => {
+              const remaining = objects.filter(o => o.id !== obj.id);
+              pushToHistory(remaining);
+            };
+
+            if (geom.card_type === 'web_search') {
+              return (
+                <g key={obj.id} transform={`translate(${geom.x}, ${geom.y})`}>
+                  <rect
+                    width={cardWidth}
+                    height={cardHeight}
+                    fill="var(--glass-bg)"
+                    rx={20}
+                    stroke="var(--accent-primary)"
+                    strokeWidth={2}
+                    className="shadow-2xl"
+                  />
+                  <foreignObject width={cardWidth} height={cardHeight} className="p-4">
+                    <div className="flex flex-col h-full justify-between select-none text-[var(--text-primary)]">
+                      <div
+                        onPointerDown={(e) => handleCardDragStart(e, obj.id, geom.x || 120, geom.y || 60)}
+                        className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5 mb-2.5 cursor-grab active:cursor-grabbing hover:bg-[var(--accent-primary-soft)]/40 p-1.5 rounded-xl transition-colors"
+                        title="Click & Drag header to move floating component anywhere on canvas"
+                      >
+                        <span className="text-xs font-extrabold text-[var(--accent-primary)] tracking-wider uppercase flex items-center gap-1.5">
+                          <GripHorizontal className="w-4 h-4 opacity-70" />
+                          🌐 GROUNDED WEB RESEARCH
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-[var(--text-primary)] bg-[var(--accent-primary-soft)] px-2.5 py-0.5 rounded-lg border border-[var(--border-subtle)]">
+                            Tavily AI Search
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeCard();
+                            }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="p-1 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-rose-500 hover:border-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shadow-sm"
+                            title="Close Component (X)"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex-1 w-full min-h-0 overflow-y-auto space-y-3 text-xs pr-1">
+                        <h4 className="font-bold text-base text-[var(--text-primary)]">{geom.title}</h4>
+                        <p className="text-[var(--text-secondary)] leading-relaxed text-xs">{geom.summary}</p>
+                        {geom.key_points && (
+                          <div className="space-y-1 pt-1">
+                            <span className="text-[10px] font-bold uppercase text-[var(--accent-primary)] block">Key Takeaways</span>
+                            <ul className="list-disc pl-4 space-y-1 text-xs text-[var(--text-primary)]">
+                              {geom.key_points.map((pt: string, i: number) => (
+                                <li key={i}>{pt}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {geom.sources && geom.sources.length > 0 && (
+                          <div className="pt-2 border-t border-[var(--border-subtle)]">
+                            <span className="text-[9px] font-bold uppercase text-[var(--text-secondary)] block mb-1">Web Sources</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {geom.sources.map((s: any, idx: number) => (
+                                <a
+                                  key={idx}
+                                  href={s.url || '#'}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[10px] bg-[var(--card-bg)] border border-[var(--border-subtle)] px-2 py-1 rounded-lg text-[var(--accent-primary)] hover:underline truncate max-w-[240px]"
+                                >
+                                  🔗 {s.title}
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </foreignObject>
+                </g>
+              );
+            } else if (geom.card_type === 'visualizer') {
+              return (
+                <g key={obj.id} transform={`translate(${geom.x}, ${geom.y})`}>
+                  <rect
+                    width={cardWidth}
+                    height={cardHeight}
+                    fill="var(--glass-bg)"
+                    rx={20}
+                    stroke="var(--accent-primary)"
+                    strokeWidth={2}
+                    className="shadow-2xl"
+                  />
+                  <foreignObject width={cardWidth} height={cardHeight} className="p-4">
+                    <div className="flex flex-col h-full justify-between select-none text-[var(--text-primary)]">
+                      <div
+                        onPointerDown={(e) => handleCardDragStart(e, obj.id, geom.x || 140, geom.y || 70)}
+                        className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2.5 mb-2.5 cursor-grab active:cursor-grabbing hover:bg-[var(--accent-primary-soft)]/40 p-1.5 rounded-xl transition-colors"
+                        title="Click & Drag header to move floating component anywhere on canvas"
+                      >
+                        <span className="text-xs font-extrabold text-[var(--accent-primary)] tracking-wider uppercase flex items-center gap-1.5">
+                          <GripHorizontal className="w-4 h-4 opacity-70" />
+                          ✨ AI CONCEPT VISUALIZER
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-[var(--text-primary)] bg-[var(--accent-primary-soft)] px-2.5 py-0.5 rounded-lg border border-[var(--border-subtle)]">
+                            Structured Breakdown
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeCard();
+                            }}
+                            onPointerDown={(e) => e.stopPropagation()}
+                            className="p-1 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-rose-500 hover:border-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shadow-sm"
+                            title="Close Component (X)"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex-1 w-full min-h-0 overflow-y-auto space-y-3 text-xs pr-1">
+                        <h3 className="font-bold text-base text-[var(--text-primary)]">{geom.concept_title}</h3>
+                        <p className="text-[var(--text-secondary)] leading-relaxed text-xs">{geom.definition}</p>
+                        {geom.real_world_analogy && (
+                          <div className="p-3 rounded-xl bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] text-xs font-medium text-[var(--text-primary)] italic">
+                            💡 {geom.real_world_analogy}
+                          </div>
+                        )}
+                        {geom.components && (
+                          <div className="grid grid-cols-3 gap-2.5 pt-1">
+                            {geom.components.map((c: any, idx: number) => (
+                              <div key={idx} className="p-2.5 rounded-xl bg-[var(--card-bg)] border border-[var(--border-subtle)] text-center space-y-1">
+                                <div className="text-xs font-bold text-[var(--accent-primary)] truncate">{c.name}</div>
+                                <div className="text-[10px] text-[var(--text-secondary)] leading-tight">{c.role}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </foreignObject>
+                </g>
+              );
+            }
+
             // Render Math Plotted Graph as an embedded element
             return (
               <g key={obj.id} transform={`translate(${geom.x}, ${geom.y})`}>
                 <rect
-                  width={geom.w}
-                  height={geom.h}
+                  width={cardWidth}
+                  height={cardHeight}
                   fill="var(--glass-bg)"
-                  rx={16}
+                  rx={20}
                   stroke="var(--glass-border)"
-                  strokeWidth={1}
+                  strokeWidth={2}
+                  className="shadow-2xl"
                 />
-                <foreignObject width={geom.w} height={geom.h} className="p-3">
+                <foreignObject width={cardWidth} height={cardHeight} className="p-4">
                   <div className="flex flex-col h-full justify-between select-none">
-                    <div className="flex items-center justify-between border-b border-slate-800/40 pb-1.5 mb-1.5">
-                      <span className="text-[10px] font-bold text-sky-400 font-mono tracking-wide uppercase">
-                        Plotted Curve
+                    <div
+                      onPointerDown={(e) => handleCardDragStart(e, obj.id, geom.x || 150, geom.y || 80)}
+                      className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2 mb-2 cursor-grab active:cursor-grabbing hover:bg-[var(--accent-primary-soft)]/40 p-1.5 rounded-xl transition-colors"
+                      title="Click & Drag header to move floating component anywhere on canvas"
+                    >
+                      <span className="text-xs font-extrabold text-[var(--accent-primary)] font-mono tracking-wider uppercase flex items-center gap-1.5">
+                        <GripHorizontal className="w-4 h-4 opacity-70" />
+                        📈 PLOTTED CURVE
                       </span>
-                      <span className="text-[11px] font-semibold text-slate-100 font-mono">
-                        {geom.formula_text}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-[var(--text-primary)] font-mono bg-[var(--accent-primary-soft)] px-3 py-1 rounded-lg border border-[var(--border-subtle)] shadow-sm">
+                          {geom.formula_text}
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeCard();
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="p-1 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-rose-500 hover:border-rose-500 hover:bg-rose-500/10 transition-all cursor-pointer shadow-sm"
+                          title="Close Component (X)"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex-1 w-full min-h-0">
+                    <div className="flex-1 w-full min-h-0 overflow-y-auto">
                       {/* Reuse ChartCard data drawing structure */}
                       <ChartCard
                         data={{

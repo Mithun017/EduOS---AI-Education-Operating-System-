@@ -14,12 +14,16 @@ from app.core.security import get_current_token_payload
 from app.core.tenant import require_tenant_context
 from app.ai.orchestrator import AIOrchestrator, AIRequest, AIMessage
 
+from pydantic import BaseModel, ConfigDict, Field
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/canvas", tags=["Canvas & Drawing System"])
 
 # Pydantic Schemas
 class CanvasObjectSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     type: str # stroke, shape, formula, text
     geometry_json: str
@@ -27,18 +31,14 @@ class CanvasObjectSchema(BaseModel):
     recognized_as: Optional[str] = None
     order_index: int = 0
 
-    class Config:
-        from_attributes = True
-
 class CanvasSessionSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     topic_id: str
     conversation_id: Optional[str] = None
     owner_user_id: str
     objects: List[CanvasObjectSchema] = []
-
-    class Config:
-        from_attributes = True
 
 class CanvasObjectsBatchRequest(BaseModel):
     objects: List[CanvasObjectSchema]
@@ -270,40 +270,298 @@ async def recognize_formula(
         # Standard fallback to ensure continuous usability in dev/offline settings
         return RecognizeFormulaResponse(formula_text="y = x^2 - 4x + 3")
 
-@router.post("/{session_id}/plot", response_model=PlotResponse)
-async def plot_formula(
-    session_id: str,
-    payload: PlotRequest
-):
-    # This evaluates simple expressions server-side as a backup, but the frontend
-    # will primarily calculate points using mathjs client-side.
-    # Let's provide a basic server-side generator for a safe fallback.
-    formula = payload.formula_text.lower().replace(" ", "")
-    # Parse simple quadratic curves like: y=x^2-4x+3, or y=x*x, or y=2x+1
-    # Generate x values from -10 to 10
-    series_data = []
-    labels = []
-    
-    # We will strip 'y=' if present
-    expr = formula.split("=")[-1] if "=" in formula else formula
-    
-    # Simple evaluator logic for basic polynomial curves:
-    for x in range(-10, 11):
-        # basic safe string evaluation fallback
-        try:
-            # Replace common expressions
-            local_expr = expr.replace("x^2", f"({x}**2)").replace("x", f"({x})")
-            # Safe eval with restricted globals
-            y = float(eval(local_expr, {"__builtins__": None}, {}))
-        except Exception:
-            # Fallback curve if evaluation fails: y = x^2
-            y = float(x ** 2 - 4 * x + 3)
-            
-        series_data.append({"x": x, "y": round(y, 2)})
-        labels.append(str(x))
+from app.rag.tavily_client import IsolatedTavilyClient
 
-    return PlotResponse(
-        chart_type="line",
-        labels=labels,
-        series=series_data
+class CanvasWebSearchRequest(BaseModel):
+    query: str
+
+class CanvasVisualizeRequest(BaseModel):
+    text: str
+
+class CanvasGraphGenerateRequest(BaseModel):
+    topic: str
+
+@router.post("/web-search")
+async def canvas_web_search(
+    payload: CanvasWebSearchRequest,
+    tenant_id: str = Depends(require_tenant_context)
+):
+    tavily = IsolatedTavilyClient()
+    results = tavily.search_external_resources(payload.query, max_results=3)
+
+    orchestrator = AIOrchestrator()
+    prompt = f"Summarize web research for topic '{payload.query}'. Results: {json.dumps(results)}"
+    req = AIRequest(
+        messages=[AIMessage(role="user", content=prompt)],
+        system_prompt="You are an AI research assistant. Provide a structured research response with keys: 'title', 'summary', 'key_points' (list of 3 points), 'sources' (list of titles and URLs). Return ONLY raw valid JSON.",
+        temperature=0.2,
+        max_tokens=400,
+        institution_id=tenant_id
     )
+    result_text = ""
+    async for chunk in orchestrator.generate_stream(req):
+        result_text += chunk.text
+
+    try:
+        data = json.loads(result_text.strip().replace("```json", "").replace("```", "").strip())
+    except Exception:
+        data = {
+            "title": f"Web Research: {payload.query}",
+            "summary": f"Latest web research and educational insights for {payload.query}.",
+            "key_points": [f"Core principle of {payload.query}", "Academic application & vector representation", "Current industry implementation"],
+            "sources": results if results else [{"title": "EduOS Grounded Knowledge Base", "url": "https://eduos.ai"}]
+        }
+    return data
+
+@router.post("/visualize")
+async def canvas_visualize_concept(
+    payload: CanvasVisualizeRequest,
+    tenant_id: str = Depends(require_tenant_context)
+):
+    orchestrator = AIOrchestrator()
+    prompt = f"Analyze definition and create visual breakdown card for: '{payload.text}'"
+    req = AIRequest(
+        messages=[AIMessage(role="user", content=prompt)],
+        system_prompt="You are an AI conceptual visualizer. Return raw valid JSON with keys: 'concept_title', 'definition', 'real_world_analogy', 'components' (array of 3 component objects with 'name' and 'role').",
+        temperature=0.2,
+        max_tokens=400,
+        institution_id=tenant_id
+    )
+    result_text = ""
+    async for chunk in orchestrator.generate_stream(req):
+        result_text += chunk.text
+
+    try:
+        data = json.loads(result_text.strip().replace("```json", "").replace("```", "").strip())
+    except Exception:
+        data = {
+            "concept_title": payload.text,
+            "definition": f"Detailed concept analysis for '{payload.text}'. Defines mathematical boundaries and execution semantics.",
+            "real_world_analogy": f"Analogy: Think of {payload.text} like a specialized filter processing streams of data.",
+            "components": [
+                {"name": "Input Signal Layer", "role": "Receives raw vector embeddings or feature signals"},
+                {"name": "Transformation Engine", "role": "Applies mathematical weights and non-linear activation"},
+                {"name": "Output Calibrator", "role": "Produces calibrated probability distributions"}
+            ]
+        }
+    return data
+
+@router.post("/knowledge-graph")
+async def generate_3d_knowledge_graph(
+    payload: CanvasGraphGenerateRequest,
+    tenant_id: str = Depends(require_tenant_context)
+):
+    topic = payload.topic
+    orchestrator = AIOrchestrator()
+    prompt = f"Generate 3D knowledge graph constellation nodes for topic '{topic}'. Return JSON object with keys: 'core_summary', 'branches' (array of 4 branch objects, each with 'name', 'summary', and 'sub_nodes' (array of 2 sub-nodes with 'name', 'summary', 'relation'))."
+    req = AIRequest(
+        messages=[AIMessage(role="user", content=prompt)],
+        system_prompt="You are a 3D Knowledge Graph architect. Return ONLY raw valid JSON.",
+        temperature=0.3,
+        max_tokens=800,
+        institution_id=tenant_id
+    )
+    result_text = ""
+    async for chunk in orchestrator.generate_stream(req):
+        result_text += chunk.text
+
+    try:
+        raw_json = json.loads(result_text.strip().replace("```json", "").replace("```", "").strip())
+    except Exception:
+        raw_json = None
+
+    nodes = []
+    edges = []
+
+    core_summary = raw_json.get("core_summary", f"Core 3D Central Concept analysis for {topic}.") if raw_json else f"Core concept for {topic}."
+    nodes.append({
+        "id": "core-0",
+        "label": topic,
+        "type": "core",
+        "summary": core_summary,
+        "x": 0, "y": 0, "z": 0, "tier": 0
+    })
+
+    branches = raw_json.get("branches", []) if raw_json else []
+    if not branches:
+        branches = [
+            {"name": f"{topic} Foundations", "summary": f"Base principles of {topic}.", "sub_nodes": [{"name": f"{topic} Core Axioms", "summary": "Axioms & assumptions.", "relation": "defines"}, {"name": f"{topic} State Spaces", "summary": "Representation space.", "relation": "models"}]},
+            {"name": "Mathematical Framework", "summary": "Derivative & matrix equations.", "sub_nodes": [{"name": "Gradient Optimizations", "summary": "Loss function optimization.", "relation": "optimizes"}, {"name": "Vector Transformations", "summary": "Linear mapping.", "relation": "transforms"}]},
+            {"name": "Architectural Nodes", "summary": "Structural components.", "sub_nodes": [{"name": "Feature Extraction", "summary": "Dimensionality reduction.", "relation": "extracts"}, {"name": "Activation Layers", "summary": "Non-linear transformations.", "relation": "activates"}]},
+            {"name": "Applications & Use Cases", "summary": "Real-world deployment.", "sub_nodes": [{"name": "Pattern Recognition", "summary": "Classification tasks.", "relation": "executes"}, {"name": "Predictive Modeling", "summary": "Forecasting outcomes.", "relation": "predicts"}]}
+        ]
+
+    import math as math_module
+    radius1 = 380
+    sub_offset = 240
+
+    for b_idx, b in enumerate(branches[:4]):
+        b_id = f"t1-{b_idx}"
+        angle = (b_idx * math_module.pi) / 2
+        bx = radius1 * math_module.cos(angle)
+        by = (1 if b_idx % 2 == 0 else -1) * 70
+        bz = radius1 * math_module.sin(angle)
+
+        nodes.append({
+            "id": b_id,
+            "label": b.get("name", f"Branch {b_idx + 1}"),
+            "type": "branch",
+            "summary": b.get("summary", ""),
+            "x": bx,
+            "y": by,
+            "z": bz,
+            "tier": 1
+        })
+        edges.append({"from": "core-0", "to": b_id, "relation": "originates_from"})
+
+        sub_nodes = b.get("sub_nodes", [])
+        for s_idx, sn in enumerate(sub_nodes[:3]):
+            s_id = f"t2-{b_idx}-{s_idx}"
+            fan_angle = angle + ((s_idx - 1) * math_module.pi / 4)
+            sx = bx + sub_offset * math_module.cos(fan_angle)
+            sy = by + ((s_idx - 1) * 60)
+            sz = bz + sub_offset * math_module.sin(fan_angle)
+
+            nodes.append({
+                "id": s_id,
+                "label": sn.get("name", f"Sub-node {s_idx + 1}"),
+                "type": "math" if s_idx % 2 == 0 else "component",
+                "summary": sn.get("summary", ""),
+                "x": sx,
+                "y": sy,
+                "z": sz,
+                "tier": 2
+            })
+            edges.append({"from": b_id, "to": s_id, "relation": sn.get("relation", "connects_to")})
+
+    roadmap = {
+        "total_duration": "6 Weeks",
+        "phases": [
+            {
+                "id": "phase-1",
+                "phase_number": 1,
+                "title": f"Foundations & Prerequisites",
+                "duration": "Weeks 1 - 2",
+                "status": "Prerequisites",
+                "summary": f"Master core definitions, vector representations, and mathematical axioms for {topic}.",
+                "key_topics": [f"{topic} Axioms", "Vector Space", "Matrix Operations", "Linear Embeddings"],
+                "milestone_project": f"Implement a basic baseline model for {topic}.",
+                "sections": [
+                    {
+                        "id": "sec-1-1",
+                        "title": f"What is {topic}?",
+                        "type": "recommended",
+                        "summary": f"Fundamental intuition, history, and basic problem formulation of {topic}.",
+                        "sub_items": [
+                            {"id": "item-1-1-1", "title": "Core Definitions & Problem Statement", "type": "recommended", "summary": "Mathematical definition and target objectives."},
+                            {"id": "item-1-1-2", "title": "Vector Representations & Spaces", "type": "recommended", "summary": "High-dimensional vector spaces and feature mapping."},
+                            {"id": "item-1-1-3", "title": "Environment & Tooling Setup", "type": "alternative", "summary": "Setting up Python, PyTorch/TensorFlow, and Jupyter environment."}
+                        ]
+                    },
+                    {
+                        "id": "sec-1-2",
+                        "title": "Mathematical Foundations",
+                        "type": "recommended",
+                        "summary": "Linear algebra, calculus derivatives, and probability theory necessary for deep understanding.",
+                        "sub_items": [
+                            {"id": "item-1-2-1", "title": "Matrix Multiplication & Tensor Operations", "type": "recommended", "summary": "Tensors, rank, and dimension broadcasting rules."},
+                            {"id": "item-1-2-2", "title": "Partial Derivatives & Chain Rule", "type": "recommended", "summary": "Backpropagation mathematics and computational graphs."}
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "phase-2",
+                "phase_number": 2,
+                "title": f"Core Architectural Mechanisms",
+                "duration": "Weeks 3 - 4",
+                "status": "Core Mechanics",
+                "summary": f"Deep dive into non-linear transformations, layer activations, and derivative optimizations for {topic}.",
+                "key_topics": ["Layer Transformations", "Activation Functions", "Gradient Descent", "Loss Formulation"],
+                "milestone_project": f"Construct training pipeline and evaluate loss curves.",
+                "sections": [
+                    {
+                        "id": "sec-2-1",
+                        "title": "Layer Mechanisms & Activations",
+                        "type": "recommended",
+                        "summary": "Structural building blocks, weight matrices, and non-linear thresholding.",
+                        "sub_items": [
+                            {"id": "item-2-1-1", "title": "Activation Functions (ReLU, GELU, Sigmoid)", "type": "recommended", "summary": "Introducing non-linearity into neural representations."},
+                            {"id": "item-2-1-2", "title": "Feature Map Normalization", "type": "recommended", "summary": "BatchNorm, LayerNorm, and numerical stability."}
+                        ]
+                    },
+                    {
+                        "id": "sec-2-2",
+                        "title": "Loss & Gradient Optimization",
+                        "type": "recommended",
+                        "summary": "Formulating loss functions and gradient descent update rules.",
+                        "sub_items": [
+                            {"id": "item-2-2-1", "title": "Loss Formulation (Cross-Entropy, MSE)", "type": "recommended", "summary": "Quantifying discrepancy between prediction and ground truth."},
+                            {"id": "item-2-2-2", "title": "Stochastic Gradient Descent & AdamW", "type": "recommended", "summary": "Adaptive learning rates and momentum optimizations."}
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "phase-3",
+                "phase_number": 3,
+                "title": f"Advanced Architectures & Optimization",
+                "duration": "Weeks 5 - 6",
+                "status": "Advanced Mastery",
+                "summary": f"Explore attention coupling, regularization, and multi-layered pipeline optimization in {topic}.",
+                "key_topics": ["Attention Coupling", "Regularization Techniques", "Hyperparameter Tuning", "Fine-Tuning"],
+                "milestone_project": f"Optimize model performance on benchmark datasets.",
+                "sections": [
+                    {
+                        "id": "sec-3-1",
+                        "title": "Attention & Deep Coupling",
+                        "type": "recommended",
+                        "summary": "Multi-head self-attention and contextual dependency mapping.",
+                        "sub_items": [
+                            {"id": "item-3-1-1", "title": "Scaled Dot-Product Attention", "type": "recommended", "summary": "Query, Key, and Value mapping mechanisms."},
+                            {"id": "item-3-1-2", "title": "Multi-Head Attention Layers", "type": "recommended", "summary": "Parallel subspace projection and concatenation."}
+                        ]
+                    },
+                    {
+                        "id": "sec-3-2",
+                        "title": "Regularization & Hyperparameters",
+                        "type": "alternative",
+                        "summary": "Preventing overfitting and tuning model capacity.",
+                        "sub_items": [
+                            {"id": "item-3-2-1", "title": "Dropout & Weight Decay", "type": "recommended", "summary": "Stochastic node dropping and L2 regularization."},
+                            {"id": "item-3-2-2", "title": "Learning Rate Schedulers (Cosine Annealing)", "type": "optional", "summary": "Dynamic decay strategies for stable convergence."}
+                        ]
+                    }
+                ]
+            },
+            {
+                "id": "phase-4",
+                "phase_number": 4,
+                "title": f"Real-World Deployment & Applications",
+                "duration": "Production",
+                "status": "Deployment",
+                "summary": f"Deploy production inference pipelines, monitor latency, and apply {topic} to real-world tasks.",
+                "key_topics": ["Model Quantization", "API Endpoint Serving", "Latency Optimization", "Production Monitoring"],
+                "milestone_project": f"Deploy end-to-end interactive microservice for {topic}.",
+                "sections": [
+                    {
+                        "id": "sec-4-1",
+                        "title": "Model Compression & Serving",
+                        "type": "recommended",
+                        "summary": "Quantization, ONNX export, and fast inference engine deployment.",
+                        "sub_items": [
+                            {"id": "item-4-1-1", "title": "INT8/FP16 Model Quantization", "type": "recommended", "summary": "Reducing precision for 4x memory savings and accelerated throughput."},
+                            {"id": "item-4-1-2", "title": "FastAPI & Triton Microservice", "type": "recommended", "summary": "Building high-concurrency API endpoints."}
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+
+    return {
+        "topic": topic,
+        "nodes": nodes,
+        "edges": edges,
+        "roadmap": roadmap
+    }

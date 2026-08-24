@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 class NIMProvider:
     name: str = "nvidia_nim"
-    priority: int = 1
+    priority: int = 3
 
     def __init__(self):
         self.api_key = settings.NVIDIA_NIM_API_KEY
@@ -34,15 +34,26 @@ class NIMProvider:
         for msg in request.messages:
             formatted_messages.append({"role": msg.role, "content": msg.content})
 
-        model_name = "meta/llama-3.1-70b-instruct" # Standard NIM reasoning model
+        models_to_try = ["meta/llama-3.1-8b-instruct", "meta/llama-3.3-70b-instruct"]
+        response_stream = None
+        last_err = None
 
-        response_stream = await self._client.chat.completions.create(
-            model=model_name,
-            messages=formatted_messages,
-            temperature=request.temperature,
-            max_tokens=request.max_tokens,
-            stream=True
-        )
+        for model_name in models_to_try:
+            try:
+                response_stream = await self._client.chat.completions.create(
+                    model=model_name,
+                    messages=formatted_messages,
+                    temperature=request.temperature,
+                    max_tokens=request.max_tokens,
+                    stream=True
+                )
+                break
+            except Exception as e:
+                last_err = e
+                continue
+
+        if not response_stream:
+            raise RuntimeError(f"NVIDIA NIM API model streaming failed: {last_err}")
 
         async for chunk in response_stream:
             if chunk.choices and len(chunk.choices) > 0:

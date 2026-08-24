@@ -133,7 +133,7 @@ export const StudentAssistant: React.FC = () => {
             onClick={() => setCanvasModeActive(!canvasModeActive)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
               canvasModeActive
-                ? 'bg-[var(--accent-primary)] text-slate-950 border-[var(--accent-primary)] font-semibold shadow-lg'
+                ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] border-[var(--accent-primary)] font-semibold shadow-lg'
                 : 'bg-[var(--glass-bg)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)]'
             }`}
           >

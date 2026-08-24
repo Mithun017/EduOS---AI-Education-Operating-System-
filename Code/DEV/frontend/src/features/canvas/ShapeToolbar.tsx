@@ -1,5 +1,5 @@
 import React from 'react';
-import { PenTool, Eraser, Trash2, Undo2, Redo2, Grid, Sparkles, Move, Network } from 'lucide-react';
+import { PenTool, Eraser, Trash2, Undo2, Redo2, Grid, Sparkles, Move, Network, Globe, BarChart2 } from 'lucide-react';
 
 interface ShapeToolbarProps {
   activeTool: 'pen' | 'eraser' | 'lasso' | 'select';
@@ -12,6 +12,8 @@ interface ShapeToolbarProps {
   onRedo: () => void;
   onClear: () => void;
   onRecognize: () => void;
+  onWebSearch?: () => void;
+  onVisualize?: () => void;
   hasSelection: boolean;
   onOpenGraphicalView?: () => void;
 }
@@ -27,6 +29,8 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   onRedo,
   onClear,
   onRecognize,
+  onWebSearch,
+  onVisualize,
   hasSelection,
   onOpenGraphicalView,
 }) => {
@@ -113,16 +117,36 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
 
       <div className="h-5 w-[1px] bg-[var(--border-subtle)] mx-0.5" />
 
-      {/* Action buttons */}
+      {/* Interactive Selection AI Actions */}
       {hasSelection && (
-        <button
-          onClick={onRecognize}
-          className="flex items-center gap-1 px-2.5 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-xs font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
-          title="Recognize handwritten math"
-        >
-          <Sparkles size={13} />
-          <span>Plot Math</span>
-        </button>
+        <div className="flex items-center gap-1 bg-[var(--accent-primary-soft)] p-0.5 rounded-lg border border-[var(--border-subtle)]">
+          <button
+            onClick={onWebSearch}
+            className="flex items-center gap-1 px-2 py-1 bg-[var(--glass-bg)] border border-[var(--border-subtle)] text-[var(--accent-primary)] hover:border-[var(--accent-primary)] rounded-lg text-xs font-bold transition-all cursor-pointer"
+            title="Search web & AI for selected handwriting/text"
+          >
+            <Globe size={13} />
+            <span>Web Search</span>
+          </button>
+
+          <button
+            onClick={onRecognize}
+            className="flex items-center gap-1 px-2 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-xs font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+            title="Recognize and plot 2D/3D math graph"
+          >
+            <BarChart2 size={13} />
+            <span>Plot Math</span>
+          </button>
+
+          <button
+            onClick={onVisualize}
+            className="flex items-center gap-1 px-2 py-1 bg-[var(--glass-bg)] border border-[var(--border-subtle)] text-[var(--accent-primary)] hover:border-[var(--accent-primary)] rounded-lg text-xs font-bold transition-all cursor-pointer"
+            title="Generate AI conceptual visualization breakdown card"
+          >
+            <Sparkles size={13} />
+            <span>Visualize AI</span>
+          </button>
+        </div>
       )}
 
       {/* Graphical View / Second Brain */}

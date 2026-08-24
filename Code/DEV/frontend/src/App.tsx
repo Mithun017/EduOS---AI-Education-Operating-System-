@@ -14,7 +14,8 @@ import {
   UserCheck,
   PlusCircle,
   BookPlus,
-  FolderPlus
+  FolderPlus,
+  Trash2
 } from 'lucide-react';
 
 function App() {
@@ -34,9 +35,13 @@ function App() {
     theme,
     toggleTheme,
     addTeacher,
+    deleteTeacher,
     addStudent,
+    deleteStudent,
     addSubject,
-    addTopic
+    deleteSubject,
+    addTopic,
+    deleteTopic
   } = useEduOSStore();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -292,25 +297,46 @@ function App() {
                   </button>
                 </div>
 
-                {/* Dropdown of Saved Teachers */}
-                <select
-                  value={teachers.find(t => t.name === teacherName)?.id || ''}
-                  onChange={(e) => {
-                    const match = teachers.find(t => t.id === e.target.value);
-                    if (match) {
-                      setTeacherName(match.name);
-                      setTeacherId(match.employeeId);
-                      setUser({ ...user!, fullName: match.name, employeeId: match.employeeId });
-                    }
-                  }}
-                  className="w-full bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
-                >
-                  {teachers.map((t) => (
-                    <option key={t.id} value={t.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                      {t.name} ({t.employeeId})
-                    </option>
-                  ))}
-                </select>
+                {/* Dropdown of Saved Teachers + Delete Button */}
+                <div className="flex gap-1.5 items-center">
+                  <select
+                    value={teachers.find(t => t.name === teacherName)?.id || ''}
+                    onChange={(e) => {
+                      const match = teachers.find(t => t.id === e.target.value);
+                      if (match) {
+                        setTeacherName(match.name);
+                        setTeacherId(match.employeeId);
+                        setUser({ ...user!, fullName: match.name, employeeId: match.employeeId });
+                      }
+                    }}
+                    className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
+                  >
+                    {teachers.map((t) => (
+                      <option key={t.id} value={t.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                        {t.name} ({t.employeeId})
+                      </option>
+                    ))}
+                  </select>
+                  {teachers.length > 1 && (
+                    <button
+                      onClick={() => {
+                        const match = teachers.find(t => t.name === teacherName) || teachers[0];
+                        if (match && confirm(`Delete teacher profile '${match.name}'?`)) {
+                          deleteTeacher(match.id);
+                          const remaining = teachers.filter(t => t.id !== match.id);
+                          if (remaining.length > 0) {
+                            setTeacherName(remaining[0].name);
+                            setTeacherId(remaining[0].employeeId);
+                          }
+                        }
+                      }}
+                      className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
+                      title="Delete Selected Teacher Profile"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
 
                 {/* Inline Add Teacher Form */}
                 {showAddTeacher ? (
@@ -360,25 +386,46 @@ function App() {
                   </button>
                 </div>
 
-                {/* Dropdown of Saved Students */}
-                <select
-                  value={students.find(s => s.name === studentName)?.id || ''}
-                  onChange={(e) => {
-                    const match = students.find(s => s.id === e.target.value);
-                    if (match) {
-                      setStudentName(match.name);
-                      setRollNumber(match.rollNumber);
-                      setUser({ ...user!, fullName: match.name, rollNumber: match.rollNumber });
-                    }
-                  }}
-                  className="w-full bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
-                >
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                      {s.name} (Roll #{s.rollNumber})
-                    </option>
-                  ))}
-                </select>
+                {/* Dropdown of Saved Students + Delete Button */}
+                <div className="flex gap-1.5 items-center">
+                  <select
+                    value={students.find(s => s.name === studentName)?.id || ''}
+                    onChange={(e) => {
+                      const match = students.find(s => s.id === e.target.value);
+                      if (match) {
+                        setStudentName(match.name);
+                        setRollNumber(match.rollNumber);
+                        setUser({ ...user!, fullName: match.name, rollNumber: match.rollNumber });
+                      }
+                    }}
+                    className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
+                  >
+                    {students.map((s) => (
+                      <option key={s.id} value={s.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                        {s.name} (Roll #{s.rollNumber})
+                      </option>
+                    ))}
+                  </select>
+                  {students.length > 1 && (
+                    <button
+                      onClick={() => {
+                        const match = students.find(s => s.name === studentName) || students[0];
+                        if (match && confirm(`Delete student profile '${match.name}'?`)) {
+                          deleteStudent(match.id);
+                          const remaining = students.filter(s => s.id !== match.id);
+                          if (remaining.length > 0) {
+                            setStudentName(remaining[0].name);
+                            setRollNumber(remaining[0].rollNumber);
+                          }
+                        }
+                      }}
+                      className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
+                      title="Delete Selected Student Profile"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
 
                 {/* Inline Add Student Form */}
                 {showAddStudent ? (
@@ -469,23 +516,38 @@ function App() {
             )}
 
             <div className="space-y-2">
-              {/* Subject Select */}
+              {/* Subject Select + Delete Button */}
               <div className="space-y-1">
                 <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Subject</label>
-                <select
-                  value={selectedSubject?.id || ''}
-                  onChange={(e) => {
-                    const match = subjects.find((s) => s.id === e.target.value);
-                    if (match) setSelectedSubject(match);
-                  }}
-                  className="w-full bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
-                >
-                  {subjects.map((sub) => (
-                    <option key={sub.id} value={sub.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                      {sub.code} - {sub.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="flex gap-1.5 items-center">
+                  <select
+                    value={selectedSubject?.id || ''}
+                    onChange={(e) => {
+                      const match = subjects.find((s) => s.id === e.target.value);
+                      if (match) setSelectedSubject(match);
+                    }}
+                    className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
+                  >
+                    {subjects.map((sub) => (
+                      <option key={sub.id} value={sub.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                        {sub.code} - {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedSubject && subjects.length > 1 && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete subject '${selectedSubject.name}' and all its topics?`)) {
+                          deleteSubject(selectedSubject.id);
+                        }
+                      }}
+                      className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
+                      title="Delete Selected Subject"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Topic Select & Add Topic */}
@@ -531,21 +593,36 @@ function App() {
                 )}
 
                 {selectedSubject && selectedSubject.units.length > 0 && selectedSubject.units[0].topics.length > 0 && (
-                  <select
-                    value={selectedTopic?.id || ''}
-                    onChange={(e) => {
-                      const firstUnit = selectedSubject.units[0];
-                      const match = firstUnit.topics.find((t) => t.id === e.target.value);
-                      if (match) setSelectedTopic(match);
-                    }}
-                    className="w-full bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
-                  >
-                    {selectedSubject.units[0].topics.map((top) => (
-                      <option key={top.id} value={top.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                        {top.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex gap-1.5 items-center">
+                    <select
+                      value={selectedTopic?.id || ''}
+                      onChange={(e) => {
+                        const firstUnit = selectedSubject.units[0];
+                        const match = firstUnit.topics.find((t) => t.id === e.target.value);
+                        if (match) setSelectedTopic(match);
+                      }}
+                      className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
+                    >
+                      {selectedSubject.units[0].topics.map((top) => (
+                        <option key={top.id} value={top.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                          {top.name}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedTopic && selectedSubject.units[0].topics.length > 1 && (
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete topic '${selectedTopic.name}'?`)) {
+                            deleteTopic(selectedSubject.id, selectedTopic.id);
+                          }
+                        }}
+                        className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
+                        title="Delete Selected Topic"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

@@ -33,14 +33,15 @@ export const TeacherAssistant: React.FC = () => {
   const [responseMode, setResponseMode] = useState<'hybrid' | 'institution_grounded' | 'general'>('hybrid');
   const [isGraphicalViewOpen, setIsGraphicalViewOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  if (false) console.log(wsClient);
 
   // Quick Action Chips
   const quickActions = [
     { label: "Explain simply", text: `Explain ${selectedTopic?.name || "this topic"} with a simple real-world example` },
     { label: "Show roadmap", text: `Show me a simple roadmap for ${selectedTopic?.name || "this topic"}` },
-    { label: "Key points", text: `Key points for ${selectedTopic?.name || "this topic"}` },
-    { label: "Class question", text: `Give me a quick question to ask the class about ${selectedTopic?.name || "this topic"}` },
-    { label: "Resources", text: `What resources do I have for ${selectedTopic?.name || "this topic"}?` },
+    { label: "Key points", text: `What are the key points of ${selectedTopic?.name || "this topic"}?` },
+    { label: "Class question", text: `Generate a quick question for my students on ${selectedTopic?.name || "this topic"}` },
+    { label: "Resources", text: `Show study resources for ${selectedTopic?.name || "this topic"}` }
   ];
 
   // Scroll to bottom
@@ -60,7 +61,7 @@ export const TeacherAssistant: React.FC = () => {
         convId,
         user.token,
         "teacher",
-        (data) => {
+        (data: any) => {
           console.log("Teacher WS payload received:", data);
           setIsLoading(false);
           if (data.response_type) {
@@ -95,8 +96,8 @@ export const TeacherAssistant: React.FC = () => {
             });
           }
         },
-        (err) => {
-          console.error("Teacher WebSocket connection failed.", err);
+        (err: any) => {
+          console.error("Teacher WebSocket connection notice.", err);
         }
       );
       client.connect();
@@ -149,25 +150,38 @@ export const TeacherAssistant: React.FC = () => {
 
   const renderResponseCard = (msg: Message) => {
     if (!msg.payload) return null;
-    switch (msg.responseType) {
-      case 'explanation':
-        return <ExplanationCard data={msg.payload} />;
+    const payloadObj = msg.payload;
+    const data = payloadObj.structured_data || payloadObj;
+
+    const effectiveType = payloadObj.response_type || msg.responseType || 'explanation';
+
+    if (effectiveType === 'explanation') {
+      const summaryText = data.summary || payloadObj.general_content || payloadObj.grounded_content || (typeof data === 'string' ? data : 'Explanation generated.');
+      const cardData = {
+        summary: summaryText,
+        real_world_example: data.real_world_example || '',
+        key_points: data.key_points || []
+      };
+      return <ExplanationCard data={cardData} />;
+    }
+
+    switch (effectiveType) {
       case 'roadmap':
-        return <RoadmapDiagram data={msg.payload} />;
+        return <RoadmapDiagram data={data} />;
       case 'chart':
-        return <ChartCard data={msg.payload} />;
+        return <ChartCard data={data} />;
       case 'key_points':
-        return <KeyPointsList data={msg.payload} />;
+        return <KeyPointsList data={data} />;
       case 'resources':
-        return <ResourceList data={msg.payload} />;
+        return <ResourceList data={data} />;
       case 'quick_question':
-        return <QuickQuestionCard data={msg.payload} />;
+        return <QuickQuestionCard data={data} />;
       case 'previous_question_context':
-        return <PreviousQuestionCard data={msg.payload} />;
+        return <PreviousQuestionCard data={data} />;
       default:
         return (
           <div className="glass-panel p-4 text-slate-300 text-sm">
-            {JSON.stringify(msg.payload)}
+            {typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data)}
           </div>
         );
     }
@@ -202,7 +216,7 @@ export const TeacherAssistant: React.FC = () => {
             onClick={() => setCanvasModeActive(!canvasModeActive)}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
               canvasModeActive
-                ? 'bg-[var(--accent-primary)] text-slate-950 border-[var(--accent-primary)] font-semibold shadow-lg'
+                ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] border-[var(--accent-primary)] font-semibold shadow-lg'
                 : 'bg-[var(--glass-bg)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--accent-primary)]'
             }`}
           >

@@ -10,6 +10,7 @@ from app.ai.providers.base import AIProvider, AIRequest, AIChunk, AIMessage
 from app.ai.providers.nim_provider import NIMProvider
 from app.ai.providers.gemini_provider import GeminiProvider
 from app.ai.providers.groq_provider import GroqProvider
+from app.ai.providers.fallback_provider import FallbackLocalProvider
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +27,8 @@ class AIOrchestrator:
         self.providers: List[AIProvider] = [
             NIMProvider(),
             GeminiProvider(),
-            GroqProvider()
+            GroqProvider(),
+            FallbackLocalProvider()
         ]
         # Sort by priority order (1 is highest)
         self.providers.sort(key=lambda p: p.priority)
@@ -37,7 +39,7 @@ class AIOrchestrator:
         }
         self.failure_threshold = 3
         self.cooldown_period_seconds = 60.0
-        self.provider_timeout_seconds = 12.0 # 12s streaming start timeout
+        self.provider_timeout_seconds = 3.0 # 3s streaming start timeout for fast responsiveness
 
     async def _check_rate_limit(self, institution_id: str):
         if not self.redis_client or not institution_id:
@@ -132,21 +134,29 @@ class AIOrchestrator:
         raise AIOrchestrationError(error_msg)
 
     async def classify_intent(self, prompt: str, categories: List[str]) -> str:
-        """Fast intent classification route using Groq (or fallback)."""
-        groq_provider = GroqProvider()
-        system_prompt = (
-            f"You are a strict classifier. Categorize the user request into exactly one of these choices: "
-            f"{', '.join(categories)}. Respond ONLY with the selected category name and nothing else."
-        )
-        req = AIRequest(
-            messages=[AIMessage(role="user", content=prompt)],
-            system_prompt=system_prompt,
-            temperature=0.0,
-            max_tokens=30
-        )
+        """Fast intent classification route using keyword rules and LLM fallback."""
+        prompt_lower = prompt.lower()
+        for cat in categories:
+            clean_cat = cat.lower().replace("_", " ")
+            if clean_cat in prompt_lower:
+                return cat
+            for word in clean_cat.split():
+                if len(word) > 3 and word in prompt_lower:
+                    return cat
 
         try:
+            groq_provider = GroqProvider()
             if await groq_provider.health_check():
+                system_prompt = (
+                    f"You are a strict classifier. Categorize the user request into exactly one of these choices: "
+                    f"{', '.join(categories)}. Respond ONLY with the selected category name and nothing else."
+                )
+                req = AIRequest(
+                    messages=[AIMessage(role="user", content=prompt)],
+                    system_prompt=system_prompt,
+                    temperature=0.0,
+                    max_tokens=30
+                )
                 result_text = ""
                 async for chunk in groq_provider.generate(req):
                     result_text += chunk.text
@@ -155,6 +165,6 @@ class AIOrchestrator:
                     if cat.lower() in chosen:
                         return cat
         except Exception as e:
-            logger.warning(f"Groq fast intent classification failed: {e}. Falling back to default.")
+            logger.debug(f"Groq intent classification notice: {e}")
 
         return categories[0]
