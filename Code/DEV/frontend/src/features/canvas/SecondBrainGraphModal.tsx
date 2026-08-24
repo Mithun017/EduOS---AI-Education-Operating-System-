@@ -349,25 +349,25 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
 
           // Outer Glowing Oval Halo
           ctx.beginPath();
-          ctx.roundRect(-bgWidth / 2 - 4, -bgHeight / 2 - 4, bgWidth + 8, bgHeight + 8, borderRadius + 4);
-          ctx.fillStyle = isLight ? 'rgba(16, 37, 66, 0.25)' : 'rgba(139, 92, 246, 0.4)';
+          ctx.roundRect(-bgWidth / 2 - 3, -bgHeight / 2 - 3, bgWidth + 6, bgHeight + 6, borderRadius + 3);
+          ctx.fillStyle = isLight ? 'rgba(16, 37, 66, 0.15)' : 'rgba(214, 200, 223, 0.2)';
           ctx.fill();
 
-          // Highlighted Oval Pill Body
+          // Transparent Glass Oval Pill Body
           ctx.beginPath();
           ctx.roundRect(-bgWidth / 2, -bgHeight / 2, bgWidth, bgHeight, borderRadius);
-          ctx.fillStyle = isLight ? '#102542' : '#8B5CF6';
-          ctx.strokeStyle = isLight ? '#2563EB' : '#D6C8DF';
+          ctx.fillStyle = isLight ? 'rgba(255, 252, 220, 0.92)' : 'rgba(15, 23, 42, 0.92)';
+          ctx.strokeStyle = isLight ? '#102542' : '#D6C8DF';
           ctx.lineWidth = 2.5;
           ctx.fill();
           ctx.stroke();
 
           // Centered Root Text Label
-          ctx.fillStyle = '#FFFFFF';
+          ctx.fillStyle = isLight ? '#102542' : '#F8FAFC';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-          ctx.shadowBlur = 4;
+          ctx.shadowColor = isLight ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.7)';
+          ctx.shadowBlur = 3;
           ctx.fillText(labelText, 0, 1);
         } else {
           // NON-ROOT NODES: Sleek Constellation Sphere Dots with adjacent text labels!
