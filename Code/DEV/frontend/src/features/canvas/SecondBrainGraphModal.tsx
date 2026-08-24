@@ -139,7 +139,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
   };
 
   // 3D Interactive Controls State
-  const [autoRotate, setAutoRotate] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(true);
   const [rotX, setRotX] = useState(0.2);
   const [rotY, setRotY] = useState(0.4);
   const [zoomLevel, setZoomLevel] = useState(1.0);
@@ -164,18 +164,17 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
       }
     } catch (err) {
       console.warn("Generating 3D knowledge graph fallback.", err);
-      // Fallback dense 3D graph
       const coreId = 'core-0';
       const fallbackNodes: Node3D[] = [
         { id: coreId, label: topicName, type: 'core', summary: `Core concept analysis for ${topicName}.`, x: 0, y: 0, z: 0, tier: 0 },
-        { id: 't1-0', label: `${topicName} Foundations`, type: 'branch', summary: `Foundational mathematical principles of ${topicName}.`, x: -380, y: 70, z: 180, tier: 1 },
-        { id: 't1-1', label: `Architectural Nodes`, type: 'branch', summary: `Structural components and transformations.`, x: 380, y: -80, z: -180, tier: 1 },
-        { id: 't1-2', label: `Mathematical Formulations`, type: 'math', summary: 'Derivative chain-rules & matrix operations.', x: 180, y: 320, z: -360, tier: 1 },
-        { id: 't1-3', label: `Real-World Deployment`, type: 'component', summary: 'Practical applications & production models.', x: -200, y: -320, z: 300, tier: 1 },
-        { id: 't2-0', label: 'Feature Map Normalization', type: 'math', summary: 'Standardizes vector scaling across layers.', x: -560, y: 160, z: 360, tier: 2 },
-        { id: 't2-1', label: 'Non-Linear Activations', type: 'math', summary: 'Applies threshold functions to embeddings.', x: 540, y: -240, z: 320, tier: 2 },
-        { id: 't2-2', label: 'Dimensionality Reduction', type: 'application', summary: 'Compresses spatial dimensions efficiently.', x: 420, y: 460, z: -480, tier: 2 },
-        { id: 't2-3', label: 'Gradient Loss Optimization', type: 'component', summary: 'Computes loss derivatives for weight updates.', x: -460, y: -440, z: -380, tier: 2 }
+        { id: 't1-0', label: `${topicName} Foundations`, type: 'branch', summary: `Foundational mathematical principles of ${topicName}.`, x: -480, y: 100, z: 240, tier: 1 },
+        { id: 't1-1', label: `Architectural Nodes`, type: 'branch', summary: `Structural components and transformations.`, x: 480, y: -120, z: -240, tier: 1 },
+        { id: 't1-2', label: `Mathematical Formulations`, type: 'math', summary: 'Derivative chain-rules & matrix operations.', x: 240, y: 440, z: -480, tier: 1 },
+        { id: 't1-3', label: `Real-World Deployment`, type: 'component', summary: 'Practical applications & production models.', x: -280, y: -440, z: 400, tier: 1 },
+        { id: 't2-0', label: 'Feature Map Normalization', type: 'math', summary: 'Standardizes vector scaling across layers.', x: -720, y: 240, z: 480, tier: 2 },
+        { id: 't2-1', label: 'Non-Linear Activations', type: 'math', summary: 'Applies threshold functions to embeddings.', x: 720, y: -320, z: 440, tier: 2 },
+        { id: 't2-2', label: 'Dimensionality Reduction', type: 'application', summary: 'Compresses spatial dimensions efficiently.', x: 560, y: 640, z: -640, tier: 2 },
+        { id: 't2-3', label: 'Gradient Loss Optimization', type: 'component', summary: 'Computes loss derivatives for weight updates.', x: -640, y: -600, z: -520, tier: 2 }
       ];
 
       const fallbackEdges: Edge3D[] = [
@@ -209,12 +208,18 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
     if (!isOpen || !graphData || !canvasRef.current) return;
 
     let animId: number;
+    let localRotY = rotY;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const render3DFrame = () => {
+      if (autoRotate && !isDragging) {
+        localRotY += 0.005;
+        setRotY(localRotY);
+      }
+
       const width = canvas.width;
       const height = canvas.height;
       const centerX = width / 2;
@@ -228,8 +233,8 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
       const edgeDefaultColor = isLight ? '#64748B' : '#94A3B8';
 
       // 3D Rotation Matrix Coefficients
-      const cosY = Math.cos(rotY);
-      const sinY = Math.sin(rotY);
+      const cosY = Math.cos(localRotY);
+      const sinY = Math.sin(localRotY);
       const cosX = Math.cos(rotX);
       const sinX = Math.sin(rotX);
 
@@ -254,6 +259,30 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
           projZ: z2
         };
       });
+
+      // 2D Screen Space Collision Avoidance (Pushes overlapping card labels apart so cards NEVER collide)
+      for (let pass = 0; pass < 3; pass++) {
+        for (let i = 0; i < projectedNodes.length; i++) {
+          for (let j = i + 1; j < projectedNodes.length; j++) {
+            const n1 = projectedNodes[i];
+            const n2 = projectedNodes[j];
+            const dx = n2.projX - n1.projX;
+            const dy = n2.projY - n1.projY;
+            const minDistX = 120;
+            const minDistY = 32;
+
+            if (Math.abs(dx) < minDistX && Math.abs(dy) < minDistY) {
+              const overlapX = (minDistX - Math.abs(dx)) * 0.5 * (dx >= 0 ? 1 : -1);
+              const overlapY = (minDistY - Math.abs(dy)) * 0.5 * (dy >= 0 ? 1 : -1);
+
+              n1.projX -= overlapX;
+              n1.projY -= overlapY;
+              n2.projX += overlapX;
+              n2.projY += overlapY;
+            }
+          }
+        }
+      }
 
       // Sort nodes back-to-front (Painter's algorithm for Z-depth)
       projectedNodes.sort((a, b) => b.projZ - a.projZ);
@@ -306,7 +335,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         }
       });
 
-      // Render 3D Nodes as Direct Text Cards (NO ROUND CIRCLES!)
+      // Render 3D Nodes as Direct Compact Text Cards (NO ROUND CIRCLES!)
       projectedNodes.forEach((node) => {
         const isSelected = selectedNode?.id === node.id;
         const isHovered = hoveredNode?.id === node.id;
