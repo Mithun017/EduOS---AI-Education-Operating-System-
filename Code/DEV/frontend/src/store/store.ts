@@ -56,36 +56,6 @@ interface EduOSStore {
   deleteTopic: (subjectId: string, topicId: string) => void;
 }
 
-const defaultSubjects: AcademicSubject[] = [
-  {
-    id: "subj-001",
-    name: "General Academic Workspace",
-    code: "EDU101",
-    units: [
-      {
-        id: "unit-001",
-        name: "Unit 1: Core Principles",
-        unit_number: 1,
-        topics: [
-          {
-            id: "topic-core-001",
-            name: "General AI & Learning Research",
-            description: "Interactive learning workspace."
-          }
-        ]
-      }
-    ]
-  }
-];
-
-const defaultTeachers: TeacherProfile[] = [
-  { id: 't-1', name: 'Default Instructor', employeeId: 'FAC-001' }
-];
-
-const defaultStudents: StudentProfile[] = [
-  { id: 's-1', name: 'Learner', rollNumber: 'STU-001' }
-];
-
 const getInitialTheme = (): 'light' | 'dark' => {
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('theme');
@@ -98,11 +68,11 @@ const getInitialTheme = (): 'light' | 'dark' => {
 
 export const useEduOSStore = create<EduOSStore>((set) => ({
   user: null,
-  teachers: defaultTeachers,
-  students: defaultStudents,
-  subjects: defaultSubjects,
-  selectedSubject: defaultSubjects[0],
-  selectedTopic: defaultSubjects[0].units[0].topics[0],
+  teachers: [],
+  students: [],
+  subjects: [],
+  selectedSubject: null,
+  selectedTopic: null,
   viewMode: 'teacher',
   mockMode: false,
   theme: getInitialTheme(),
@@ -110,14 +80,15 @@ export const useEduOSStore = create<EduOSStore>((set) => ({
 
   setUser: (user) => set({ user }),
   setSubjects: (subjects) => {
-    const finalSubjects = subjects.length > 0 ? subjects : defaultSubjects;
-    set({ subjects: finalSubjects });
-    if (finalSubjects.length > 0) {
-      set({ selectedSubject: finalSubjects[0] });
-      const firstUnit = finalSubjects[0].units[0];
+    set({ subjects });
+    if (subjects.length > 0) {
+      set({ selectedSubject: subjects[0] });
+      const firstUnit = subjects[0].units[0];
       if (firstUnit && firstUnit.topics.length > 0) {
         set({ selectedTopic: firstUnit.topics[0] });
       }
+    } else {
+      set({ selectedSubject: null, selectedTopic: null });
     }
   },
   setSelectedSubject: (subject) => {

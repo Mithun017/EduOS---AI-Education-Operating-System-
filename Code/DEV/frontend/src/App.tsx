@@ -297,46 +297,52 @@ function App() {
                   </button>
                 </div>
 
-                {/* Dropdown of Saved Teachers + Delete Button */}
-                <div className="flex gap-1.5 items-center">
-                  <select
-                    value={teachers.find(t => t.name === teacherName)?.id || ''}
-                    onChange={(e) => {
-                      const match = teachers.find(t => t.id === e.target.value);
-                      if (match) {
-                        setTeacherName(match.name);
-                        setTeacherId(match.employeeId);
-                        setUser({ ...user!, fullName: match.name, employeeId: match.employeeId });
-                      }
-                    }}
-                    className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
-                  >
-                    {teachers.map((t) => (
-                      <option key={t.id} value={t.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                        {t.name} ({t.employeeId})
-                      </option>
-                    ))}
-                  </select>
-                  {teachers.length > 1 && (
-                    <button
-                      onClick={() => {
-                        const match = teachers.find(t => t.name === teacherName) || teachers[0];
-                        if (match && confirm(`Delete teacher profile '${match.name}'?`)) {
-                          deleteTeacher(match.id);
-                          const remaining = teachers.filter(t => t.id !== match.id);
-                          if (remaining.length > 0) {
-                            setTeacherName(remaining[0].name);
-                            setTeacherId(remaining[0].employeeId);
-                          }
+                {/* Dropdown of Saved Teachers + Delete Button or Empty AI Badge */}
+                {teachers.length > 0 ? (
+                  <div className="flex gap-1.5 items-center">
+                    <select
+                      value={teachers.find(t => t.name === teacherName)?.id || ''}
+                      onChange={(e) => {
+                        const match = teachers.find(t => t.id === e.target.value);
+                        if (match) {
+                          setTeacherName(match.name);
+                          setTeacherId(match.employeeId);
+                          setUser({ ...user!, fullName: match.name, employeeId: match.employeeId });
                         }
                       }}
-                      className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
-                      title="Delete Selected Teacher Profile"
+                      className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none cursor-pointer"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+                      {teachers.map((t) => (
+                        <option key={t.id} value={t.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                          {t.name} ({t.employeeId})
+                        </option>
+                      ))}
+                    </select>
+                    {teachers.length > 1 && (
+                      <button
+                        onClick={() => {
+                          const match = teachers.find(t => t.name === teacherName) || teachers[0];
+                          if (match && confirm(`Delete teacher profile '${match.name}'?`)) {
+                            deleteTeacher(match.id);
+                            const remaining = teachers.filter(t => t.id !== match.id);
+                            if (remaining.length > 0) {
+                              setTeacherName(remaining[0].name);
+                              setTeacherId(remaining[0].employeeId);
+                            }
+                          }
+                        }}
+                        className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
+                        title="Delete Selected Teacher Profile"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] text-[10px] text-[var(--text-secondary)] leading-relaxed">
+                    ✨ <span className="font-semibold text-[var(--text-primary)]">AI Dynamic Mode:</span> No mandatory teacher required. AI handles analysis dynamically.
+                  </div>
+                )}
 
                 {/* Inline Add Teacher Form */}
                 {showAddTeacher ? (
@@ -516,115 +522,123 @@ function App() {
             )}
 
             <div className="space-y-2">
-              {/* Subject Select + Delete Button */}
+              {/* Subject Select + Delete Button or Empty AI Badge */}
               <div className="space-y-1">
-                <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Subject</label>
-                <div className="flex gap-1.5 items-center">
-                  <select
-                    value={selectedSubject?.id || ''}
-                    onChange={(e) => {
-                      const match = subjects.find((s) => s.id === e.target.value);
-                      if (match) setSelectedSubject(match);
-                    }}
-                    className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
-                  >
-                    {subjects.map((sub) => (
-                      <option key={sub.id} value={sub.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                        {sub.code} - {sub.name}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedSubject && subjects.length > 1 && (
-                    <button
-                      onClick={() => {
-                        if (confirm(`Delete subject '${selectedSubject.name}' and all its topics?`)) {
-                          deleteSubject(selectedSubject.id);
-                        }
-                      }}
-                      className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
-                      title="Delete Selected Subject"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Topic Select & Add Topic */}
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Topic</label>
-                  {selectedSubject && (
-                    <button
-                      onClick={() => setShowAddTopic(!showAddTopic)}
-                      className="text-[8px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
-                    >
-                      <FolderPlus className="w-2.5 h-2.5" />
-                      <span>+ Add Topic</span>
-                    </button>
-                  )}
-                </div>
-
-                {/* Inline Add Topic Form */}
-                {showAddTopic && (
-                  <div className="p-2 rounded-lg bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] space-y-2 my-1 animate-fade-in">
-                    <input
-                      type="text"
-                      value={newTopicName}
-                      onChange={(e) => setNewTopicName(e.target.value)}
-                      placeholder="Topic Name (e.g. Qubits & Superposition)"
-                      className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
-                    />
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={handleAddNewTopic}
-                        className="flex-1 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded text-xs font-bold cursor-pointer"
-                      >
-                        Add Topic
-                      </button>
-                      <button
-                        onClick={() => setShowAddTopic(false)}
-                        className="px-2 py-1 bg-[var(--glass-bg)] text-[var(--text-secondary)] rounded text-xs cursor-pointer"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {selectedSubject && selectedSubject.units.length > 0 && selectedSubject.units[0].topics.length > 0 && (
+                <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Subject Scope</label>
+                {subjects.length > 0 ? (
                   <div className="flex gap-1.5 items-center">
                     <select
-                      value={selectedTopic?.id || ''}
+                      value={selectedSubject?.id || ''}
                       onChange={(e) => {
-                        const firstUnit = selectedSubject.units[0];
-                        const match = firstUnit.topics.find((t) => t.id === e.target.value);
-                        if (match) setSelectedTopic(match);
+                        const match = subjects.find((s) => s.id === e.target.value);
+                        if (match) setSelectedSubject(match);
                       }}
                       className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
                     >
-                      {selectedSubject.units[0].topics.map((top) => (
-                        <option key={top.id} value={top.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
-                          {top.name}
+                      {subjects.map((sub) => (
+                        <option key={sub.id} value={sub.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                          {sub.code} - {sub.name}
                         </option>
                       ))}
                     </select>
-                    {selectedTopic && selectedSubject.units[0].topics.length > 1 && (
+                    {selectedSubject && subjects.length > 1 && (
                       <button
                         onClick={() => {
-                          if (confirm(`Delete topic '${selectedTopic.name}'?`)) {
-                            deleteTopic(selectedSubject.id, selectedTopic.id);
+                          if (confirm(`Delete subject '${selectedSubject.name}' and all its topics?`)) {
+                            deleteSubject(selectedSubject.id);
                           }
                         }}
                         className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
-                        title="Delete Selected Topic"
+                        title="Delete Selected Subject"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] text-[10px] text-[var(--text-secondary)] leading-relaxed">
+                    ✨ <span className="font-semibold text-[var(--text-primary)]">AI Dynamic Scope:</span> No static subject needed. AI infers topic & domain from prompt/canvas.
+                  </div>
                 )}
               </div>
+
+              {/* Topic Select & Add Topic */}
+              {subjects.length > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Topic</label>
+                    {selectedSubject && (
+                      <button
+                        onClick={() => setShowAddTopic(!showAddTopic)}
+                        className="text-[8px] text-[var(--accent-primary)] hover:underline font-bold flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <FolderPlus className="w-2.5 h-2.5" />
+                        <span>+ Add Topic</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Inline Add Topic Form */}
+                  {showAddTopic && (
+                    <div className="p-2 rounded-lg bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] space-y-2 my-1 animate-fade-in">
+                      <input
+                        type="text"
+                        value={newTopicName}
+                        onChange={(e) => setNewTopicName(e.target.value)}
+                        placeholder="Topic Name (e.g. Qubits & Superposition)"
+                        className="w-full bg-[var(--input-bg)] border border-[var(--border-subtle)] rounded px-2 py-1 text-xs text-[var(--text-primary)]"
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={handleAddNewTopic}
+                          className="flex-1 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded text-xs font-bold cursor-pointer"
+                        >
+                          Add Topic
+                        </button>
+                        <button
+                          onClick={() => setShowAddTopic(false)}
+                          className="px-2 py-1 bg-[var(--glass-bg)] text-[var(--text-secondary)] rounded text-xs cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedSubject && selectedSubject.units.length > 0 && selectedSubject.units[0].topics.length > 0 && (
+                    <div className="flex gap-1.5 items-center">
+                      <select
+                        value={selectedTopic?.id || ''}
+                        onChange={(e) => {
+                          const firstUnit = selectedSubject.units[0];
+                          const match = firstUnit.topics.find((t) => t.id === e.target.value);
+                          if (match) setSelectedTopic(match);
+                        }}
+                        className="flex-1 min-w-0 bg-[var(--glass-bg)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] cursor-pointer"
+                      >
+                        {selectedSubject.units[0].topics.map((top) => (
+                          <option key={top.id} value={top.id} className="bg-[var(--card-bg)] text-[var(--text-primary)]">
+                            {top.name}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedTopic && selectedSubject.units[0].topics.length > 1 && (
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete topic '${selectedTopic.name}'?`)) {
+                              deleteTopic(selectedSubject.id, selectedTopic.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 hover:border-red-500 transition-all cursor-pointer shadow-sm"
+                          title="Delete Selected Topic"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

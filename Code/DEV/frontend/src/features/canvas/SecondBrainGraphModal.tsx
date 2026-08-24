@@ -212,7 +212,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      const activeTopic = initialTopic || selectedTopic?.name || 'Convolutional Neural Networks (CNN)';
+      const activeTopic = initialTopic || selectedTopic?.name || 'Artificial Intelligence & Deep Learning';
       setTopicInput(activeTopic);
       generateGraphForTopic(activeTopic);
     }
