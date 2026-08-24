@@ -434,6 +434,15 @@ async def generate_3d_knowledge_graph(
             })
             edges.append({"from": b_id, "to": s_id, "relation": sn.get("relation", "connects_to")})
 
+    # Add cross-mesh constellation web connections
+    if len(nodes) > 8:
+        edges.append({"from": "t1-0", "to": "t1-2", "relation": "correlates_with"})
+        edges.append({"from": "t1-1", "to": "t1-3", "relation": "deploys_to"})
+        edges.append({"from": "t2-0-0", "to": "t2-1-0", "relation": "transforms"})
+        edges.append({"from": "t2-1-0", "to": "t2-2-0", "relation": "feeds_into"})
+        edges.append({"from": "t2-2-0", "to": "t2-3-0", "relation": "validates"})
+        edges.append({"from": "t2-3-0", "to": "t2-0-0", "relation": "optimizes"})
+
     roadmap = {
         "total_duration": "6 Weeks",
         "phases": [

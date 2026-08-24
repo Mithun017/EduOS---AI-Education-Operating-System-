@@ -138,15 +138,27 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
     setCompletedNodeIds(new Set());
   };
 
-  // 3D Interactive Controls State
+  // 3D Interactive Controls State (X, Y, Z Axis)
   const [autoRotate, setAutoRotate] = useState(true);
-  const [rotX, setRotX] = useState(0.2);
+  const [rotX, setRotX] = useState(0.25);
   const [rotY, setRotY] = useState(0.4);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
   const [zoomLevel, setZoomLevel] = useState(1.0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isPanning, setIsPanning] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Reset X, Y, Z camera view to default
+  const handleReset3DView = () => {
+    setRotX(0.25);
+    setRotY(0.4);
+    setPanX(0);
+    setPanY(0);
+    setZoomLevel(1.0);
+  };
 
   // Generate Multi-Tier Dense 3D Graph Structure via AI
   const generateGraphForTopic = async (topicName: string) => {
@@ -185,7 +197,10 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         { from: 't1-0', to: 't2-0', relation: 'normalizes' },
         { from: 't1-1', to: 't2-1', relation: 'activates' },
         { from: 't1-2', to: 't2-2', relation: 'compresses' },
-        { from: 't1-3', to: 't2-3', relation: 'updates' }
+        { from: 't1-3', to: 't2-3', relation: 'updates' },
+        { from: 't1-0', to: 't1-2', relation: 'correlates_with' },
+        { from: 't1-1', to: 't1-3', relation: 'deploys_to' },
+        { from: 't2-0', to: 't2-1', relation: 'transforms' }
       ];
 
       setGraphData({ topic: topicName, nodes: fallbackNodes, edges: fallbackEdges });
@@ -203,7 +218,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
     }
   }, [isOpen, initialTopic, selectedTopic]);
 
-  // 3D Canvas Render Loop
+  // 3D Canvas Render Loop (Constellation Web Mesh)
   useEffect(() => {
     if (!isOpen || !graphData || !canvasRef.current) return;
 
@@ -215,22 +230,19 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
     if (!ctx) return;
 
     const render3DFrame = () => {
-      if (autoRotate && !isDragging) {
+      if (autoRotate && !isDragging && !isPanning) {
         localRotY += 0.003;
         setRotY(localRotY);
       }
 
       const width = canvas.width;
       const height = canvas.height;
-      const centerX = width / 2;
-      const centerY = height / 2;
+      const centerX = width / 2 + panX;
+      const centerY = height / 2 + panY;
 
-      ctx.clearRect(0, 0, width, height);
-
-      const isLight = document.documentElement.getAttribute('data-theme') === 'light';
-
-      const accentColor = isLight ? '#102542' : '#D6C8DF';
-      const edgeDefaultColor = isLight ? '#64748B' : '#94A3B8';
+      // Dark Constellation Universe Canvas Background
+      ctx.fillStyle = '#0B0F19';
+      ctx.fillRect(0, 0, width, height);
 
       // 3D Rotation Matrix Coefficients
       const cosY = Math.cos(localRotY);
@@ -238,7 +250,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
       const cosX = Math.cos(rotX);
       const sinX = Math.sin(rotX);
 
-      // Project Nodes into 2D Screen Space
+      // Project Nodes into 2D Screen Space with Z-Depth
       const projectedNodes = graphData.nodes.map((node) => {
         const x1 = node.x * cosY - node.z * sinY;
         const z1 = node.z * cosY + node.x * sinY;
@@ -255,15 +267,15 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
           ...node,
           projX,
           projY,
-          projScale: Math.max(0.2, perspective),
+          projScale: Math.max(0.15, perspective),
           projZ: z2
         };
       });
 
-      // Sort nodes back-to-front (Painter's algorithm for Z-depth)
+      // Sort nodes back-to-front (Painter's Z-depth algorithm)
       projectedNodes.sort((a, b) => b.projZ - a.projZ);
 
-      // Render 3D Edges
+      // Render 3D Constellation Mesh Lines (Edges)
       graphData.edges.forEach((edge) => {
         const fromNode = projectedNodes.find((n) => n.id === edge.from);
         const toNode = projectedNodes.find((n) => n.id === edge.to);
@@ -277,89 +289,107 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         ctx.lineTo(toNode.projX!, toNode.projY!);
 
         if (isConnectedToSelected || isConnectedToHovered) {
-          ctx.strokeStyle = accentColor;
-          ctx.lineWidth = 2.5 * fromNode.projScale!;
+          ctx.strokeStyle = '#38BDF8';
+          ctx.lineWidth = 2.2 * fromNode.projScale!;
           ctx.setLineDash([]);
         } else {
-          ctx.strokeStyle = edgeDefaultColor;
-          ctx.lineWidth = 1.5 * fromNode.projScale!;
+          ctx.strokeStyle = 'rgba(148, 163, 184, 0.22)';
+          ctx.lineWidth = 1.2 * fromNode.projScale!;
           if (edge.relation === 'mitigates' || edge.relation === 'prevents_decay') {
-            ctx.setLineDash([4, 4]);
+            ctx.setLineDash([3, 3]);
           } else {
             ctx.setLineDash([]);
           }
         }
         ctx.stroke();
 
-        // Render Relationship Tag at midpoint
-        const midX = (fromNode.projX! + toNode.projX!) / 2;
-        const midY = (fromNode.projY! + toNode.projY!) / 2;
-
+        // Relationship Tag at midpoint on active edges
         if (isConnectedToSelected || isConnectedToHovered) {
-          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.95)' : 'rgba(15, 23, 42, 0.95)';
-          ctx.strokeStyle = accentColor;
-          ctx.lineWidth = 1.5;
+          const midX = (fromNode.projX! + toNode.projX!) / 2;
+          const midY = (fromNode.projY! + toNode.projY!) / 2;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+          ctx.strokeStyle = '#38BDF8';
+          ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.roundRect(midX - 32, midY - 9, 64, 18, 6);
+          ctx.roundRect(midX - 32, midY - 9, 64, 18, 5);
           ctx.fill();
           ctx.stroke();
 
-          ctx.fillStyle = isLight ? '#0F172A' : '#F8FAFC';
+          ctx.fillStyle = '#38BDF8';
           ctx.font = 'bold 9px monospace';
           ctx.textAlign = 'center';
-          ctx.fillText(edge.relation, midX, midY + 3);
+          ctx.textBaseline = 'middle';
+          ctx.fillText(edge.relation, midX, midY);
         }
       });
 
-      // Render 3D Nodes as Direct Compact Text Cards (NO ROUND CIRCLES!)
+      // Render 3D Constellation Sphere Dot Nodes
       projectedNodes.forEach((node) => {
         const isSelected = selectedNode?.id === node.id;
         const isHovered = hoveredNode?.id === node.id;
         const isCore = node.type === 'core';
 
+        const baseDotRadius = isCore ? 10 : isSelected || isHovered ? 7.5 : 5.5;
+        const radius = baseDotRadius * node.projScale!;
+
         ctx.save();
         ctx.translate(node.projX!, node.projY!);
 
-        const labelText = node.label.length > 22 ? `${node.label.substring(0, 20)}...` : node.label;
-        ctx.font = isCore
-          ? `bold ${Math.max(10, Math.round(11 * node.projScale!))}px sans-serif`
-          : `bold ${Math.max(8, Math.round(9 * node.projScale!))}px sans-serif`;
-
-        const textMetrics = ctx.measureText(labelText);
-        const padX = isCore ? 10 : 7;
-        const padY = isCore ? 5 : 3.5;
-        const bgWidth = textMetrics.width + padX * 2;
-        const bgHeight = (isCore ? 12 : 10) + padY * 2;
-
-        // Card Pill Body (Direct Node Container)
+        // Outer Glow Halo Ring
         ctx.beginPath();
-        ctx.roundRect(-bgWidth / 2, -bgHeight / 2, bgWidth, bgHeight, isCore ? 8 : 6);
+        ctx.arc(0, 0, radius + (isCore ? 8 : 5), 0, Math.PI * 2);
+        ctx.fillStyle = isCore
+          ? 'rgba(139, 92, 246, 0.35)'
+          : isSelected || isHovered
+          ? 'rgba(56, 189, 248, 0.35)'
+          : 'rgba(255, 255, 255, 0.08)';
+        ctx.fill();
+
+        // Node Dot Sphere Body
+        ctx.beginPath();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
 
         if (isCore) {
-          ctx.fillStyle = isLight ? '#102542' : '#8B5CF6';
-          ctx.strokeStyle = isLight ? '#2563EB' : '#D6C8DF';
-          ctx.lineWidth = 2;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.strokeStyle = '#8B5CF6';
+          ctx.lineWidth = 3;
         } else if (isSelected || isHovered) {
-          ctx.fillStyle = isLight ? '#2563EB' : '#38BDF8';
-          ctx.strokeStyle = isLight ? '#1D4ED8' : '#7DD3FC';
-          ctx.lineWidth = 1.8;
+          ctx.fillStyle = '#38BDF8';
+          ctx.strokeStyle = '#7DD3FC';
+          ctx.lineWidth = 2.5;
         } else {
-          ctx.fillStyle = isLight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(15, 23, 42, 0.95)';
-          ctx.strokeStyle = isLight ? '#CBD5E1' : '#334155';
-          ctx.lineWidth = 1.2;
+          switch (node.type) {
+            case 'branch': ctx.fillStyle = '#38BDF8'; break;
+            case 'math': ctx.fillStyle = '#C084FC'; break;
+            case 'component': ctx.fillStyle = '#34D399'; break;
+            case 'application': ctx.fillStyle = '#FBBF24'; break;
+            default: ctx.fillStyle = '#94A3B8';
+          }
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 1;
         }
 
         ctx.fill();
         ctx.stroke();
 
-        // Card Text Label
-        ctx.fillStyle = isCore || isSelected || isHovered
-          ? '#FFFFFF'
-          : (isLight ? '#0F172A' : '#F8FAFC');
+        // Adjacent Floating Text Label
+        const labelText = node.label.length > 24 ? `${node.label.substring(0, 22)}...` : node.label;
+        ctx.font = isCore
+          ? `bold ${Math.max(11, Math.round(13 * node.projScale!))}px sans-serif`
+          : `500 ${Math.max(9, Math.round(10.5 * node.projScale!))}px sans-serif`;
 
-        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = isCore
+          ? '#FFFFFF'
+          : isSelected || isHovered
+          ? '#38BDF8'
+          : '#E2E8F0';
+
+        ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
-        ctx.fillText(labelText, 0, 1);
+        ctx.fillText(labelText, radius + 7, 0);
 
         ctx.restore();
       });
@@ -372,22 +402,34 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [isOpen, graphData, rotX, rotY, autoRotate, zoomLevel, isDragging, selectedNode, hoveredNode]);
+  }, [isOpen, graphData, rotX, rotY, panX, panY, autoRotate, zoomLevel, isDragging, isPanning, selectedNode, hoveredNode]);
 
-  // Handle 3D Drag to Rotate
+  // Handle 3D Drag to Rotate / Pan (X, Y, Z Motion)
   const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
+    if (e.button === 2 || e.shiftKey) {
+      // Right Click or Shift+Drag = Pan Mode (X & Y translation)
+      setIsPanning(true);
+    } else {
+      // Left Click Drag = Rotate Mode (X & Y rotation)
+      setIsDragging(true);
+    }
     setDragStart({ x: e.clientX, y: e.clientY });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!canvasRef.current || !graphData) return;
 
-    if (isDragging) {
+    if (isPanning) {
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+      setPanX((prev) => prev + deltaX);
+      setPanY((prev) => prev + deltaY);
+      setDragStart({ x: e.clientX, y: e.clientY });
+    } else if (isDragging) {
       const deltaX = e.clientX - dragStart.x;
       const deltaY = e.clientY - dragStart.y;
       setRotY((prev) => prev + deltaX * 0.005);
-      setRotX((prev) => Math.max(-1.2, Math.min(1.2, prev + deltaY * 0.005)));
+      setRotX((prev) => Math.max(-1.4, Math.min(1.4, prev + deltaY * 0.005)));
       setDragStart({ x: e.clientX, y: e.clientY });
     } else {
       // Pick nearest 3D projected node for hover
@@ -396,8 +438,8 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
       const mouseY = e.clientY - rect.top;
 
       const canvas = canvasRef.current;
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
+      const centerX = canvas.width / 2 + panX;
+      const centerY = canvas.height / 2 + panY;
       const cosY = Math.cos(rotY);
       const sinY = Math.sin(rotY);
       const cosX = Math.cos(rotX);
@@ -418,7 +460,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
         const projY = centerY + y1 * perspective;
 
         const dist = Math.hypot(mouseX - projX, mouseY - projY);
-        if (dist < 25 * perspective) {
+        if (dist < 22 * perspective) {
           foundHover = node;
         }
       });
@@ -429,6 +471,7 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
 
   const handleMouseUp = () => {
     setIsDragging(false);
+    setIsPanning(false);
   };
 
   // Click 3D Node
@@ -873,19 +916,63 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
           /* 3D GRAPHICAL CANVAS UNIVERSE VIEW */
           <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
             {/* Left/Center: Interactive 3D Canvas Universe */}
-            <div className="flex-1 bg-[var(--bg-app)] relative flex items-center justify-center overflow-hidden">
+            <div className="flex-1 bg-[#0B0F19] relative flex items-center justify-center overflow-hidden">
               <canvas
                 ref={canvasRef}
-                width={750}
-                height={500}
+                width={800}
+                height={550}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
+                onContextMenu={(e) => e.preventDefault()}
                 onClick={handleCanvasClick}
+                onWheel={(e) => {
+                  e.preventDefault();
+                  const delta = e.deltaY < 0 ? 0.08 : -0.08;
+                  setZoomLevel((z) => Math.max(0.2, Math.min(3.5, z + delta)));
+                }}
                 className="w-full h-full cursor-grab active:cursor-grabbing select-none"
               />
-              <div className="absolute bottom-3 left-3 bg-[var(--glass-bg)]/80 border border-[var(--border-subtle)] rounded-lg px-2.5 py-1 text-[9px] font-mono text-[var(--text-secondary)] pointer-events-none">
-                Drag mouse to rotate 3D space | Click node to inspect details
+
+              {/* Top-Right 3D Interactive Controls Overlay */}
+              <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-[var(--card-bg)]/80 backdrop-blur-md border border-[var(--border-subtle)] p-1.5 rounded-xl shadow-lg z-10">
+                <button
+                  onClick={() => setZoomLevel((z) => Math.min(3.5, z + 0.15))}
+                  className="p-1.5 rounded-lg hover:bg-[var(--glass-bg)] text-[var(--text-primary)] transition-colors cursor-pointer"
+                  title="Zoom In (Z-Axis)"
+                >
+                  <ZoomIn size={15} />
+                </button>
+                <button
+                  onClick={() => setZoomLevel((z) => Math.max(0.2, z - 0.15))}
+                  className="p-1.5 rounded-lg hover:bg-[var(--glass-bg)] text-[var(--text-primary)] transition-colors cursor-pointer"
+                  title="Zoom Out (Z-Axis)"
+                >
+                  <ZoomOut size={15} />
+                </button>
+                <div className="w-[1px] h-4 bg-[var(--border-subtle)] mx-0.5" />
+                <button
+                  onClick={handleReset3DView}
+                  className="p-1.5 rounded-lg hover:bg-[var(--glass-bg)] text-[var(--text-primary)] transition-colors cursor-pointer"
+                  title="Reset 3D X/Y/Z View"
+                >
+                  <RotateCcw size={15} />
+                </button>
+                <button
+                  onClick={() => setAutoRotate(!autoRotate)}
+                  className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                    autoRotate ? 'bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] font-bold' : 'hover:bg-[var(--glass-bg)] text-[var(--text-secondary)]'
+                  }`}
+                  title="Toggle 3D Orbit Auto-Rotate"
+                >
+                  {autoRotate ? <Pause size={15} /> : <Play size={15} />}
+                </button>
+              </div>
+
+              {/* Bottom-Left Motion Helper Badge */}
+              <div className="absolute bottom-3 left-3 bg-[#0F172A]/85 backdrop-blur-md border border-slate-700/80 rounded-xl px-3 py-1.5 text-[9.5px] font-mono text-slate-300 pointer-events-none shadow-xl flex items-center gap-2">
+                <Compass className="w-3.5 h-3.5 text-sky-400 animate-spin-slow" />
+                <span>Left-drag: Rotate X/Y | Right-drag / Shift-drag: Pan X/Y | Scroll: Zoom Z</span>
               </div>
             </div>
 
