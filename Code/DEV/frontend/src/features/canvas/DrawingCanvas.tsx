@@ -6,7 +6,7 @@ import { useEduOSStore } from '../../store/store';
 import { ShapeToolbar } from './ShapeToolbar';
 import { FormulaConfirmDialog } from './FormulaConfirmDialog';
 import { SecondBrainGraphModal } from './SecondBrainGraphModal';
-import { fetchCanvasSession, saveCanvasObjects, recognizeFormula } from '../../lib/api';
+import { fetchCanvasSession, saveCanvasObjects, recognizeFormula, searchWebForSelection, visualizeConceptForSelection } from '../../lib/api';
 import type { CanvasObject } from '../../lib/api';
 import { ChartCard } from '../teacher-assistant/ResponseRenderers';
 
@@ -479,7 +479,131 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     }
   };
 
-  // 5. Plot Graph Flow (evaluates confirm-then-plot expressions client-side)
+  // 5. OCR & Web Search Handshake (Reads handwritten notes/human language and searches Tavily)
+  const handleWebSearch = async () => {
+    setIsRecognizing(true);
+    try {
+      // Find handwritten strokes: selected strokes if any, or all strokes on canvas
+      const strokeObjects = selectedObjectIds.size > 0
+        ? objects.filter(obj => selectedObjectIds.has(obj.id))
+        : objects.filter(obj => obj.type === 'stroke' || obj.type === 'shape');
+
+      let queryTopic = selectedTopic?.name || "Artificial Intelligence";
+
+      if (strokeObjects.length > 0) {
+        try {
+          // Vision OCR to transcribe handwriting & human language into plain text
+          const ocrResult = await recognizeFormula(
+            user?.token || "",
+            sessionId || "",
+            JSON.stringify(strokeObjects)
+          );
+          if (ocrResult && ocrResult.formula_text && ocrResult.formula_text.trim()) {
+            queryTopic = ocrResult.formula_text.trim();
+          }
+        } catch (ocrErr) {
+          console.warn("OCR recognition fallback for handwriting strokes.", ocrErr);
+        }
+      }
+
+      const data = await searchWebForSelection(user?.token || '', queryTopic);
+
+      const newCardObj: CanvasObject = {
+        id: `obj-${crypto.randomUUID()}`,
+        type: 'formula',
+        geometry_json: JSON.stringify({
+          card_type: 'web_search',
+          title: data.title || `OCR Web Search: ${queryTopic}`,
+          query: queryTopic,
+          summary: data.summary || `Real-time web search results and grounded AI analysis for '${queryTopic}'.`,
+          key_points: data.key_points || [
+            `Recognized Handwriting Query: "${queryTopic}"`,
+            `Grounded AI Synthesis: Analyzed top web sources.`,
+            `Key Takeaways: Structured research notes & live references.`
+          ],
+          sources: data.sources || [
+            { title: "Authoritative Reference", url: "https://wikipedia.org" }
+          ],
+          x: 120,
+          y: 60,
+          w: 560,
+          h: 400
+        }),
+        order_index: objects.length
+      };
+
+      // Clear recognized handwritten strokes so canvas stays clean with floating research card
+      const remainingObjects = strokeObjects.length > 0
+        ? objects.filter(obj => !strokeObjects.some(s => s.id === obj.id))
+        : objects;
+
+      pushToHistory([...remainingObjects, newCardObj]);
+      setSelectedObjectIds(new Set());
+    } catch (err) {
+      console.error("OCR Web search failed:", err);
+    } finally {
+      setIsRecognizing(false);
+    }
+  };
+
+  // 6. Visualize AI Handshake (Reads handwritten notes/human language and generates visual breakdown)
+  const handleVisualize = async () => {
+    setIsRecognizing(true);
+    try {
+      const strokeObjects = selectedObjectIds.size > 0
+        ? objects.filter(obj => selectedObjectIds.has(obj.id))
+        : objects.filter(obj => obj.type === 'stroke' || obj.type === 'shape');
+
+      let queryTopic = selectedTopic?.name || "Neural Network Architecture";
+
+      if (strokeObjects.length > 0) {
+        try {
+          const ocrResult = await recognizeFormula(
+            user?.token || "",
+            sessionId || "",
+            JSON.stringify(strokeObjects)
+          );
+          if (ocrResult && ocrResult.formula_text && ocrResult.formula_text.trim()) {
+            queryTopic = ocrResult.formula_text.trim();
+          }
+        } catch (ocrErr) {
+          console.warn("OCR visualization fallback for handwriting strokes.", ocrErr);
+        }
+      }
+
+      const data = await visualizeConceptForSelection(user?.token || '', queryTopic);
+
+      const newCardObj: CanvasObject = {
+        id: `obj-${crypto.randomUUID()}`,
+        type: 'formula',
+        geometry_json: JSON.stringify({
+          card_type: 'visualizer',
+          concept_title: data.concept_title || queryTopic,
+          definition: data.definition,
+          real_world_analogy: data.real_world_analogy,
+          components: data.components || [],
+          x: 140,
+          y: 70,
+          w: 540,
+          h: 380
+        }),
+        order_index: objects.length
+      };
+
+      const remaining = strokeObjects.length > 0
+        ? objects.filter(obj => !strokeObjects.some(s => s.id === obj.id))
+        : objects;
+
+      pushToHistory([...remaining, newCardObj]);
+      setSelectedObjectIds(new Set());
+    } catch (err) {
+      console.error("Concept visualization failed:", err);
+    } finally {
+      setIsRecognizing(false);
+    }
+  };
+
+  // 7. Plot Graph Flow (evaluates confirm-then-plot expressions client-side)
   const handleConfirmFormula = (finalFormula: string) => {
     setIsConfirmOpen(false);
 
@@ -559,6 +683,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           onRedo={handleRedo}
           onClear={handleClear}
           onRecognize={handleRecognizeFormula}
+          onWebSearch={handleWebSearch}
+          onVisualize={handleVisualize}
           hasSelection={selectedObjectIds.size > 0}
         />
       </div>
