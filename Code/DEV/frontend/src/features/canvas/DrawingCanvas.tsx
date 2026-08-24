@@ -323,13 +323,34 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
       const newlySelected = new Set<string>();
       objects.forEach(obj => {
-        if (obj.type === 'stroke') {
-          const strokePoints: Point[] = JSON.parse(obj.geometry_json);
-          const pointsInside = strokePoints.filter(p => p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY);
-          // If 50% or more points are inside, select the stroke
-          if (pointsInside.length > strokePoints.length * 0.4) {
-            newlySelected.add(obj.id);
+        try {
+          const parsed = JSON.parse(obj.geometry_json);
+          if (obj.type === 'stroke' && Array.isArray(parsed)) {
+            const pointsInside = parsed.filter((p: Point) => p && typeof p.x === 'number' && p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY);
+            if (pointsInside.length > parsed.length * 0.3) {
+              newlySelected.add(obj.id);
+            }
+          } else if (obj.type === 'shape') {
+            if (obj.recognized_as === 'circle' && parsed.cx !== undefined) {
+              if (parsed.cx >= minX && parsed.cx <= maxX && parsed.cy >= minY && parsed.cy <= maxY) {
+                newlySelected.add(obj.id);
+              }
+            } else if (obj.recognized_as === 'rectangle' && parsed.x !== undefined) {
+              const rx = parsed.x + (parsed.w || 0) / 2;
+              const ry = parsed.y + (parsed.h || 0) / 2;
+              if (rx >= minX && rx <= maxX && ry >= minY && ry <= maxY) {
+                newlySelected.add(obj.id);
+              }
+            } else if ((obj.recognized_as === 'line' || obj.recognized_as === 'arrow') && parsed.x1 !== undefined) {
+              const lx = (parsed.x1 + parsed.x2) / 2;
+              const ly = (parsed.y1 + parsed.y2) / 2;
+              if (lx >= minX && lx <= maxX && ly >= minY && ly <= maxY) {
+                newlySelected.add(obj.id);
+              }
+            }
           }
+        } catch (e) {
+          // ignore parse error
         }
       });
       setSelectedObjectIds(newlySelected);
@@ -352,9 +373,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     if (activeTool === 'lasso') {
       setLassoStart(null);
       setLassoEnd(null);
-    } else if (isDrawing) {
-      setIsDrawing(false);
-
     } else if (isDrawing) {
       setIsDrawing(false);
 
