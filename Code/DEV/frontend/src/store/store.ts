@@ -59,7 +59,7 @@ interface EduOSStore {
 const defaultSubjects: AcademicSubject[] = [
   {
     id: "subj-001",
-    name: "Foundational Academic Course",
+    name: "General Academic Workspace",
     code: "EDU101",
     units: [
       {
@@ -69,8 +69,8 @@ const defaultSubjects: AcademicSubject[] = [
         topics: [
           {
             id: "topic-core-001",
-            name: "Core Academic Principles",
-            description: "Introduction to foundational concepts, research methodology, and applications."
+            name: "General AI & Learning Research",
+            description: "Interactive learning workspace."
           }
         ]
       }
@@ -79,11 +79,11 @@ const defaultSubjects: AcademicSubject[] = [
 ];
 
 const defaultTeachers: TeacherProfile[] = [
-  { id: 't-1', name: 'Course Instructor', employeeId: 'FAC-001' }
+  { id: 't-1', name: 'Default Instructor', employeeId: 'FAC-001' }
 ];
 
 const defaultStudents: StudentProfile[] = [
-  { id: 's-1', name: 'Enrolled Student', rollNumber: 'STU-001' }
+  { id: 's-1', name: 'Learner', rollNumber: 'STU-001' }
 ];
 
 const getInitialTheme = (): 'light' | 'dark' => {

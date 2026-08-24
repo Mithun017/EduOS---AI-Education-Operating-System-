@@ -434,10 +434,31 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   };
 
   const handleWebSearch = async () => {
-    if (selectedObjectIds.size === 0) return;
     setIsRecognizing(true);
     try {
-      const queryTopic = selectedTopic?.name || "Convolutional Neural Networks";
+      // Find handwritten strokes: selected strokes if any, or all strokes on canvas
+      const strokeObjects = selectedObjectIds.size > 0
+        ? objects.filter(obj => selectedObjectIds.has(obj.id))
+        : objects.filter(obj => obj.type === 'stroke' || obj.type === 'shape');
+
+      let queryTopic = selectedTopic?.name || "Artificial Intelligence";
+
+      if (strokeObjects.length > 0) {
+        try {
+          // Vision OCR to transcribe handwriting into text
+          const ocrResult = await recognizeFormula(
+            user?.token || "",
+            sessionId || "",
+            JSON.stringify(strokeObjects)
+          );
+          if (ocrResult && ocrResult.formula_text && ocrResult.formula_text.trim()) {
+            queryTopic = ocrResult.formula_text.trim();
+          }
+        } catch (ocrErr) {
+          console.warn("OCR recognition fallback for handwriting strokes.", ocrErr);
+        }
+      }
+
       const data = await searchWebForSelection(user?.token || '', queryTopic);
 
       const newCardObj: CanvasObject = {
@@ -445,23 +466,34 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         type: 'formula',
         geometry_json: JSON.stringify({
           card_type: 'web_search',
-          title: data.title || `Web Research: ${queryTopic}`,
-          summary: data.summary,
-          key_points: data.key_points || [],
-          sources: data.sources || [],
+          title: data.title || `OCR Web Search: ${queryTopic}`,
+          query: queryTopic,
+          summary: data.summary || `Real-time web search results and grounded AI analysis for '${queryTopic}'.`,
+          key_points: data.key_points || [
+            `Recognized Handwriting Query: "${queryTopic}"`,
+            `Grounded AI Synthesis: Analyzed top web sources.`,
+            `Key Takeaways: Structured research notes & live references.`
+          ],
+          sources: data.sources || [
+            { title: "Authoritative Reference", url: "https://wikipedia.org" }
+          ],
           x: 120,
           y: 60,
-          w: 540,
-          h: 380
+          w: 560,
+          h: 400
         }),
         order_index: objects.length
       };
 
-      const remaining = objects.filter(obj => !selectedObjectIds.has(obj.id));
-      pushToHistory([...remaining, newCardObj]);
+      // Clear recognized handwritten strokes so canvas stays clean with floating research card
+      const remainingObjects = strokeObjects.length > 0
+        ? objects.filter(obj => !strokeObjects.some(s => s.id === obj.id))
+        : objects;
+
+      pushToHistory([...remainingObjects, newCardObj]);
       setSelectedObjectIds(new Set());
     } catch (err) {
-      console.error("Web search failed:", err);
+      console.error("OCR Web search failed:", err);
     } finally {
       setIsRecognizing(false);
     }

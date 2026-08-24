@@ -44,13 +44,13 @@ function App() {
     deleteTopic
   } = useEduOSStore();
 
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
 
   // Identity Form State
-  const [teacherName, setTeacherName] = useState('Course Instructor');
+  const [teacherName, setTeacherName] = useState('Educator');
   const [teacherId, setTeacherId] = useState('FAC-001');
-  const [studentName, setStudentName] = useState('Enrolled Student');
+  const [studentName, setStudentName] = useState('Learner');
   const [rollNumber, setRollNumber] = useState('STU-001');
 
   // Creation Toggle Forms

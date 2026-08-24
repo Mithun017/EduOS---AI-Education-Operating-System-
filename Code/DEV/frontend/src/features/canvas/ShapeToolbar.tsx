@@ -149,10 +149,20 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
         </div>
       )}
 
+      {/* Main OCR Handwriting Analysis & Web Search Button */}
+      <button
+        onClick={onWebSearch}
+        className="flex items-center gap-1.5 px-3 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-xs font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        title="Analyze handwriting with OCR & search web for real-time results"
+      >
+        <Globe size={14} />
+        <span>OCR & Web Search</span>
+      </button>
+
       {/* Graphical View / Second Brain */}
       <button
         onClick={onOpenGraphicalView}
-        className="flex items-center gap-1 px-2.5 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-xs font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        className="flex items-center gap-1 px-2.5 py-1 bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-lg text-xs font-bold shadow-sm hover:scale-105 active:scale-95 transition-all cursor-pointer"
         title="Open Real-time Graphical View (Second Brain Knowledge Graph)"
       >
         <Network size={14} />
