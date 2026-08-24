@@ -197,7 +197,9 @@ export const TeacherAssistant: React.FC = () => {
           </div>
           <div>
             <h3 className="font-semibold text-sm text-[var(--text-primary)]">Live Teaching Assistant</h3>
-            <p className="text-[10px] text-[var(--text-secondary)]">Context: <span className="text-[var(--accent-primary)] font-medium">{selectedTopic?.name || "No Topic Selected"}</span></p>
+            {selectedTopic && (
+              <p className="text-[10px] text-[var(--text-secondary)]">Context: <span className="text-[var(--accent-primary)] font-medium">{selectedTopic.name}</span></p>
+            )}
           </div>
         </div>
 

@@ -113,7 +113,7 @@ export const StudentAssistant: React.FC = () => {
               </span>
             </h3>
             <p className="text-[10px] text-[var(--text-secondary)]">
-              Personalized learning on <span className="text-[var(--accent-primary)] font-medium">{selectedTopic?.name || "CNN"}</span>
+              Personalized learning {selectedTopic ? <>on <span className="text-[var(--accent-primary)] font-medium">{selectedTopic.name}</span></> : 'workspace'}
             </p>
           </div>
         </div>
