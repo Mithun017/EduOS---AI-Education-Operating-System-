@@ -351,29 +351,69 @@ async def generate_3d_knowledge_graph(
     payload: CanvasGraphGenerateRequest,
     tenant_id: str = Depends(require_tenant_context)
 ):
-    topic = payload.topic
+    topic = payload.topic.strip()
     orchestrator = AIOrchestrator()
-    prompt = f"Generate 3D knowledge graph constellation nodes for topic '{topic}'. Return JSON object with keys: 'core_summary', 'branches' (array of 4 branch objects, each with 'name', 'summary', and 'sub_nodes' (array of 2 sub-nodes with 'name', 'summary', 'relation'))."
+
+    # 1. Query Tavily Search for real web research context on the exact topic
+    web_results = []
+    try:
+        tavily = IsolatedTavilyClient()
+        web_results = tavily.search_external_resources(topic, max_results=4)
+    except Exception as e:
+        logger.warning(f"Tavily web search notice for knowledge-graph: {e}")
+
+    # 2. Instruct LLM to construct 100% topic-customized 3D nodes AND 5-phase sequential roadmap
+    prompt = (
+        f"Generate a 3D knowledge graph and 5-phase milestone learning roadmap specifically tailored to topic '{topic}'.\n"
+        f"Web Research Context: {json.dumps(web_results)}\n\n"
+        "Return ONLY raw valid JSON with keys:\n"
+        "1. 'core_summary': High-level summary of '{topic}'.\n"
+        "2. 'branches': Array of 4-5 domain branches for '{topic}'. Each object has:\n"
+        "   - 'name': Branch name specific to '{topic}'.\n"
+        "   - 'summary': Branch description.\n"
+        "   - 'sub_nodes': Array of 2-3 sub-nodes, each with 'name', 'summary', and 'relation' (e.g. 'defines', 'derives', 'applies', 'optimizes', 'models').\n"
+        "3. 'roadmap': Object with 'total_duration' (e.g. '6 Weeks') and 'phases' (Array of 4-5 phase objects specifically tailored to '{topic}').\n"
+        "   Each phase object must have:\n"
+        "   - 'id': e.g. 'phase-1'\n"
+        "   - 'phase_number': int (1 to 5)\n"
+        "   - 'title': Phase title customized for '{topic}' (e.g. 'Phase 1: Foundations & Prerequisites')\n"
+        "   - 'duration': e.g. 'Weeks 1 - 2'\n"
+        "   - 'status': e.g. 'Prerequisites', 'Core Mechanics', 'Advanced Concepts', 'Applications', 'Mastery'\n"
+        "   - 'summary': Explanation of this phase for '{topic}'.\n"
+        "   - 'key_topics': Array of 3-4 key sub-topics for this phase.\n"
+        "   - 'milestone_project': Hands-on milestone project for this phase.\n"
+        "   - 'sections': Array of 2 section objects, each with:\n"
+        "     - 'id': e.g. 'sec-1-1'\n"
+        "     - 'title': Section title\n"
+        "     - 'type': 'recommended' or 'alternative'\n"
+        "     - 'summary': Section summary\n"
+        "     - 'sub_items': Array of 2-3 items with 'id', 'title', 'type' ('recommended'|'alternative'|'optional'), 'summary'.\n"
+    )
+
     req = AIRequest(
         messages=[AIMessage(role="user", content=prompt)],
-        system_prompt="You are a 3D Knowledge Graph architect. Return ONLY raw valid JSON.",
+        system_prompt="You are a 3D Knowledge Graph architect and curriculum planner. Do NOT use generic machine learning placeholders unless topic is Machine Learning. Return ONLY valid JSON.",
         temperature=0.3,
-        max_tokens=800,
+        max_tokens=1500,
         institution_id=tenant_id
     )
+
     result_text = ""
     async for chunk in orchestrator.generate_stream(req):
         result_text += chunk.text
 
+    raw_json = None
     try:
-        raw_json = json.loads(result_text.strip().replace("```json", "").replace("```", "").strip())
-    except Exception:
-        raw_json = None
+        cleaned = result_text.strip().replace("```json", "").replace("```", "").strip()
+        raw_json = json.loads(cleaned)
+    except Exception as e:
+        logger.warning(f"Could not parse LLM JSON for knowledge graph: {e}")
 
+    # Build 3D Nodes with Collision-Free Orbital Positioning Math
     nodes = []
     edges = []
 
-    core_summary = raw_json.get("core_summary", f"Core 3D Central Concept analysis for {topic}.") if raw_json else f"Core concept for {topic}."
+    core_summary = raw_json.get("core_summary", f"Core structural breakdown and concepts of {topic}.") if raw_json else f"Core conceptual framework of {topic}."
     nodes.append({
         "id": "core-0",
         "label": topic,
@@ -385,21 +425,51 @@ async def generate_3d_knowledge_graph(
     branches = raw_json.get("branches", []) if raw_json else []
     if not branches:
         branches = [
-            {"name": f"{topic} Foundations", "summary": f"Base principles of {topic}.", "sub_nodes": [{"name": f"{topic} Core Axioms", "summary": "Axioms & assumptions.", "relation": "defines"}, {"name": f"{topic} State Spaces", "summary": "Representation space.", "relation": "models"}]},
-            {"name": "Mathematical Framework", "summary": "Derivative & matrix equations.", "sub_nodes": [{"name": "Gradient Optimizations", "summary": "Loss function optimization.", "relation": "optimizes"}, {"name": "Vector Transformations", "summary": "Linear mapping.", "relation": "transforms"}]},
-            {"name": "Architectural Nodes", "summary": "Structural components.", "sub_nodes": [{"name": "Feature Extraction", "summary": "Dimensionality reduction.", "relation": "extracts"}, {"name": "Activation Layers", "summary": "Non-linear transformations.", "relation": "activates"}]},
-            {"name": "Applications & Use Cases", "summary": "Real-world deployment.", "sub_nodes": [{"name": "Pattern Recognition", "summary": "Classification tasks.", "relation": "executes"}, {"name": "Predictive Modeling", "summary": "Forecasting outcomes.", "relation": "predicts"}]}
+            {
+                "name": f"{topic} Foundations",
+                "summary": f"Foundational principles and mathematical definitions of {topic}.",
+                "sub_nodes": [
+                    {"name": f"{topic} Core Principles", "summary": f"Fundamental axioms of {topic}.", "relation": "defines"},
+                    {"name": f"{topic} Conceptual Framework", "summary": f"Theoretical formulation of {topic}.", "relation": "models"}
+                ]
+            },
+            {
+                "name": f"{topic} Core Mechanics",
+                "summary": f"Primary mechanisms, algorithms, and operational workflows of {topic}.",
+                "sub_nodes": [
+                    {"name": f"{topic} Structural Operations", "summary": f"Primary execution steps in {topic}.", "relation": "executes"},
+                    {"name": f"{topic} Transformations", "summary": f"State transformations and mappings in {topic}.", "relation": "transforms"}
+                ]
+            },
+            {
+                "name": f"{topic} Advanced Methodologies",
+                "summary": f"Advanced techniques and optimization strategies for {topic}.",
+                "sub_nodes": [
+                    {"name": f"{topic} Optimization Models", "summary": f"Performance and efficiency tuning for {topic}.", "relation": "optimizes"},
+                    {"name": f"{topic} Analytical Formulations", "summary": f"Rigorous proof and analysis in {topic}.", "relation": "analyzes"}
+                ]
+            },
+            {
+                "name": f"{topic} Real-World Applications",
+                "summary": f"Practical deployment, tools, and industry applications of {topic}.",
+                "sub_nodes": [
+                    {"name": f"{topic} System Integration", "summary": f"Integrating {topic} into live systems.", "relation": "deploys"},
+                    {"name": f"{topic} Case Studies", "summary": f"Benchmark applications and empirical results of {topic}.", "relation": "evaluates"}
+                ]
+            }
         ]
 
     import math as math_module
-    radius1 = 340
-    sub_offset = 200
+    radius1 = 360
+    sub_offset = 220
+    num_branches = min(len(branches), 5)
 
-    for b_idx, b in enumerate(branches[:4]):
+    for b_idx in range(num_branches):
+        b = branches[b_idx]
         b_id = f"t1-{b_idx}"
-        angle = (b_idx * math_module.pi) / 2
+        angle = (b_idx * 2 * math_module.pi) / num_branches
         bx = radius1 * math_module.cos(angle)
-        by = (1 if b_idx % 2 == 0 else -1) * 80
+        by = (1 if b_idx % 2 == 0 else -1) * 90
         bz = radius1 * math_module.sin(angle)
 
         nodes.append({
@@ -415,12 +485,15 @@ async def generate_3d_knowledge_graph(
         edges.append({"from": "core-0", "to": b_id, "relation": "originates_from"})
 
         sub_nodes = b.get("sub_nodes", [])
-        for s_idx, sn in enumerate(sub_nodes[:3]):
+        num_subs = min(len(sub_nodes), 3)
+        for s_idx in range(num_subs):
+            sn = sub_nodes[s_idx]
             s_id = f"t2-{b_idx}-{s_idx}"
-            fan_angle = angle + ((s_idx - 1) * math_module.pi / 4)
-            sx = bx + sub_offset * math_module.cos(fan_angle)
-            sy = by + ((s_idx - 1) * 75)
-            sz = bz + sub_offset * math_module.sin(fan_angle)
+            fan_angle = (s_idx - (num_subs - 1) / 2.0) * (math_module.pi / 5)
+            sub_angle = angle + fan_angle
+            sx = bx + sub_offset * math_module.cos(sub_angle)
+            sy = by + ((s_idx - 1) * 85)
+            sz = bz + sub_offset * math_module.sin(sub_angle)
 
             nodes.append({
                 "id": s_id,
@@ -434,139 +507,128 @@ async def generate_3d_knowledge_graph(
             })
             edges.append({"from": b_id, "to": s_id, "relation": sn.get("relation", "connects_to")})
 
-    # Add cross-mesh constellation web connections
-    if len(nodes) > 8:
+    # Inter-branch mesh connections for 3D constellation
+    if len(nodes) > 6:
         edges.append({"from": "t1-0", "to": "t1-2", "relation": "correlates_with"})
         edges.append({"from": "t1-1", "to": "t1-3", "relation": "deploys_to"})
-        edges.append({"from": "t2-0-0", "to": "t2-1-0", "relation": "transforms"})
-        edges.append({"from": "t2-1-0", "to": "t2-2-0", "relation": "feeds_into"})
-        edges.append({"from": "t2-2-0", "to": "t2-3-0", "relation": "validates"})
-        edges.append({"from": "t2-3-0", "to": "t2-0-0", "relation": "optimizes"})
 
-    roadmap = {
-        "total_duration": "6 Weeks",
-        "phases": [
-            {
-                "id": "phase-1",
-                "phase_number": 1,
-                "title": f"Foundations & Prerequisites",
-                "duration": "Weeks 1 - 2",
-                "status": "Prerequisites",
-                "summary": f"Master core definitions, vector representations, and mathematical axioms for {topic}.",
-                "key_topics": [f"{topic} Axioms", "Vector Space", "Matrix Operations", "Linear Embeddings"],
-                "milestone_project": f"Implement a basic baseline model for {topic}.",
-                "sections": [
-                    {
-                        "id": "sec-1-1",
-                        "title": f"What is {topic}?",
-                        "type": "recommended",
-                        "summary": f"Fundamental intuition, history, and basic problem formulation of {topic}.",
-                        "sub_items": [
-                            {"id": "item-1-1-1", "title": "Core Definitions & Problem Statement", "type": "recommended", "summary": "Mathematical definition and target objectives."},
-                            {"id": "item-1-1-2", "title": "Vector Representations & Spaces", "type": "recommended", "summary": "High-dimensional vector spaces and feature mapping."},
-                            {"id": "item-1-1-3", "title": "Environment & Tooling Setup", "type": "alternative", "summary": "Setting up Python, PyTorch/TensorFlow, and Jupyter environment."}
-                        ]
-                    },
-                    {
-                        "id": "sec-1-2",
-                        "title": "Mathematical Foundations",
-                        "type": "recommended",
-                        "summary": "Linear algebra, calculus derivatives, and probability theory necessary for deep understanding.",
-                        "sub_items": [
-                            {"id": "item-1-2-1", "title": "Matrix Multiplication & Tensor Operations", "type": "recommended", "summary": "Tensors, rank, and dimension broadcasting rules."},
-                            {"id": "item-1-2-2", "title": "Partial Derivatives & Chain Rule", "type": "recommended", "summary": "Backpropagation mathematics and computational graphs."}
-                        ]
-                    }
-                ]
-            },
-            {
-                "id": "phase-2",
-                "phase_number": 2,
-                "title": f"Core Architectural Mechanisms",
-                "duration": "Weeks 3 - 4",
-                "status": "Core Mechanics",
-                "summary": f"Deep dive into non-linear transformations, layer activations, and derivative optimizations for {topic}.",
-                "key_topics": ["Layer Transformations", "Activation Functions", "Gradient Descent", "Loss Formulation"],
-                "milestone_project": f"Construct training pipeline and evaluate loss curves.",
-                "sections": [
-                    {
-                        "id": "sec-2-1",
-                        "title": "Layer Mechanisms & Activations",
-                        "type": "recommended",
-                        "summary": "Structural building blocks, weight matrices, and non-linear thresholding.",
-                        "sub_items": [
-                            {"id": "item-2-1-1", "title": "Activation Functions (ReLU, GELU, Sigmoid)", "type": "recommended", "summary": "Introducing non-linearity into neural representations."},
-                            {"id": "item-2-1-2", "title": "Feature Map Normalization", "type": "recommended", "summary": "BatchNorm, LayerNorm, and numerical stability."}
-                        ]
-                    },
-                    {
-                        "id": "sec-2-2",
-                        "title": "Loss & Gradient Optimization",
-                        "type": "recommended",
-                        "summary": "Formulating loss functions and gradient descent update rules.",
-                        "sub_items": [
-                            {"id": "item-2-2-1", "title": "Loss Formulation (Cross-Entropy, MSE)", "type": "recommended", "summary": "Quantifying discrepancy between prediction and ground truth."},
-                            {"id": "item-2-2-2", "title": "Stochastic Gradient Descent & AdamW", "type": "recommended", "summary": "Adaptive learning rates and momentum optimizations."}
-                        ]
-                    }
-                ]
-            },
-            {
-                "id": "phase-3",
-                "phase_number": 3,
-                "title": f"Advanced Architectures & Optimization",
-                "duration": "Weeks 5 - 6",
-                "status": "Advanced Mastery",
-                "summary": f"Explore attention coupling, regularization, and multi-layered pipeline optimization in {topic}.",
-                "key_topics": ["Attention Coupling", "Regularization Techniques", "Hyperparameter Tuning", "Fine-Tuning"],
-                "milestone_project": f"Optimize model performance on benchmark datasets.",
-                "sections": [
-                    {
-                        "id": "sec-3-1",
-                        "title": "Attention & Deep Coupling",
-                        "type": "recommended",
-                        "summary": "Multi-head self-attention and contextual dependency mapping.",
-                        "sub_items": [
-                            {"id": "item-3-1-1", "title": "Scaled Dot-Product Attention", "type": "recommended", "summary": "Query, Key, and Value mapping mechanisms."},
-                            {"id": "item-3-1-2", "title": "Multi-Head Attention Layers", "type": "recommended", "summary": "Parallel subspace projection and concatenation."}
-                        ]
-                    },
-                    {
-                        "id": "sec-3-2",
-                        "title": "Regularization & Hyperparameters",
-                        "type": "alternative",
-                        "summary": "Preventing overfitting and tuning model capacity.",
-                        "sub_items": [
-                            {"id": "item-3-2-1", "title": "Dropout & Weight Decay", "type": "recommended", "summary": "Stochastic node dropping and L2 regularization."},
-                            {"id": "item-3-2-2", "title": "Learning Rate Schedulers (Cosine Annealing)", "type": "optional", "summary": "Dynamic decay strategies for stable convergence."}
-                        ]
-                    }
-                ]
-            },
-            {
-                "id": "phase-4",
-                "phase_number": 4,
-                "title": f"Real-World Deployment & Applications",
-                "duration": "Production",
-                "status": "Deployment",
-                "summary": f"Deploy production inference pipelines, monitor latency, and apply {topic} to real-world tasks.",
-                "key_topics": ["Model Quantization", "API Endpoint Serving", "Latency Optimization", "Production Monitoring"],
-                "milestone_project": f"Deploy end-to-end interactive microservice for {topic}.",
-                "sections": [
-                    {
-                        "id": "sec-4-1",
-                        "title": "Model Compression & Serving",
-                        "type": "recommended",
-                        "summary": "Quantization, ONNX export, and fast inference engine deployment.",
-                        "sub_items": [
-                            {"id": "item-4-1-1", "title": "INT8/FP16 Model Quantization", "type": "recommended", "summary": "Reducing precision for 4x memory savings and accelerated throughput."},
-                            {"id": "item-4-1-2", "title": "FastAPI & Triton Microservice", "type": "recommended", "summary": "Building high-concurrency API endpoints."}
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
+    # Extract or build topic-specific roadmap
+    roadmap = raw_json.get("roadmap") if (raw_json and isinstance(raw_json.get("roadmap"), dict)) else None
+    if not roadmap or not roadmap.get("phases"):
+        roadmap = {
+            "total_duration": "6 Weeks",
+            "phases": [
+                {
+                    "id": "phase-1",
+                    "phase_number": 1,
+                    "title": f"Phase 1: {topic} Foundations & Prerequisites",
+                    "duration": "Weeks 1 - 2",
+                    "status": "Prerequisites",
+                    "summary": f"Master core definitions, principles, and foundational concepts of {topic}.",
+                    "key_topics": [f"What is {topic}", f"{topic} Core Axioms", f"{topic} Environment Setup"],
+                    "milestone_project": f"Build a foundational knowledge synthesis project for {topic}.",
+                    "sections": [
+                        {
+                            "id": "sec-1-1",
+                            "title": f"Introduction to {topic}",
+                            "type": "recommended",
+                            "summary": f"Fundamental intuition, history, and core problem statement of {topic}.",
+                            "sub_items": [
+                                {"id": f"item-1-1-1", "title": f"What is {topic}?", "type": "recommended", "summary": f"Core definition and objectives of {topic}."},
+                                {"id": f"item-1-1-2", "title": f"{topic} Principles & Definitions", "type": "recommended", "summary": f"Primary terminology and mathematical assumptions of {topic}."},
+                                {"id": f"item-1-1-3", "title": f"{topic} Setup & Tools", "type": "alternative", "summary": f"Setting up execution environment and analytical tools for {topic}."}
+                            ]
+                        },
+                        {
+                            "id": "sec-1-2",
+                            "title": f"{topic} Mathematical & Theoretical Foundations",
+                            "type": "recommended",
+                            "summary": f"Essential theoretical axioms and mathematical formulations required for {topic}.",
+                            "sub_items": [
+                                {"id": f"item-1-2-1", "title": f"{topic} Axioms & Equations", "type": "recommended", "summary": f"Key equations and theoretical constraints of {topic}."},
+                                {"id": f"item-1-2-2", "title": f"{topic} Representation Spaces", "type": "recommended", "summary": f"State spaces and vector representations in {topic}."}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "phase-2",
+                    "phase_number": 2,
+                    "title": f"Phase 2: {topic} Core Architectural Mechanisms",
+                    "duration": "Weeks 3 - 4",
+                    "status": "Core Mechanics",
+                    "summary": f"Deep dive into primary execution steps, algorithms, and operational workflows of {topic}.",
+                    "key_topics": [f"{topic} Mechanics", f"{topic} Transformations", f"{topic} Optimization Rules"],
+                    "milestone_project": f"Construct an execution pipeline and evaluate outcomes for {topic}.",
+                    "sections": [
+                        {
+                            "id": "sec-2-1",
+                            "title": f"{topic} Mechanisms & Execution",
+                            "type": "recommended",
+                            "summary": f"Core operational components and structural transformations in {topic}.",
+                            "sub_items": [
+                                {"id": f"item-2-1-1", "title": f"{topic} Transformation Functions", "type": "recommended", "summary": f"Applying core transformations and functions in {topic}."},
+                                {"id": f"item-2-1-2", "title": f"{topic} State Normalization", "type": "recommended", "summary": f"Calibrating and normalizing state variables in {topic}."}
+                            ]
+                        },
+                        {
+                            "id": "sec-2-2",
+                            "title": f"{topic} Optimization & Evaluation",
+                            "type": "recommended",
+                            "summary": f"Formulating loss metrics, error analysis, and optimization routines for {topic}.",
+                            "sub_items": [
+                                {"id": f"item-2-2-1", "title": f"{topic} Evaluation Metrics", "type": "recommended", "summary": f"Quantifying performance and discrepancy in {topic}."},
+                                {"id": f"item-2-2-2", "title": f"{topic} Optimization Algorithms", "type": "recommended", "summary": f"Iterative optimization routines for {topic}."}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "phase-3",
+                    "phase_number": 3,
+                    "title": f"Phase 3: Advanced {topic} Methodologies",
+                    "duration": "Weeks 5 - 6",
+                    "status": "Advanced Mastery",
+                    "summary": f"Master advanced techniques, multi-layered coupling, and performance tuning for {topic}.",
+                    "key_topics": [f"Advanced {topic}", f"{topic} Fine-Tuning", f"{topic} System Optimization"],
+                    "milestone_project": f"Optimize {topic} performance on benchmark challenge problems.",
+                    "sections": [
+                        {
+                            "id": "sec-3-1",
+                            "title": f"Advanced {topic} Paradigms",
+                            "type": "recommended",
+                            "summary": f"Cutting-edge variations, deep coupling, and extended methodologies in {topic}.",
+                            "sub_items": [
+                                {"id": f"item-3-1-1", "title": f"Multi-scale {topic} Modeling", "type": "recommended", "summary": f"Hierarchical modeling and complex abstractions in {topic}."},
+                                {"id": f"item-3-1-2", "title": f"{topic} Subspace Analysis", "type": "recommended", "summary": f"Decomposing complex behaviors into subspace components."}
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "id": "phase-4",
+                    "phase_number": 4,
+                    "title": f"Phase 4: Real-World Applications & Deployment of {topic}",
+                    "duration": "Production",
+                    "status": "Deployment",
+                    "summary": f"Deploy production inference pipelines, microservices, and practical applications of {topic}.",
+                    "key_topics": [f"{topic} Deployment", f"{topic} API Integration", f"Production {topic}"],
+                    "milestone_project": f"Deploy an interactive real-world application powered by {topic}.",
+                    "sections": [
+                        {
+                            "id": "sec-4-1",
+                            "title": f"{topic} Production Serving",
+                            "type": "recommended",
+                            "summary": f"Deploying, monitoring, and scaling {topic} in production environments.",
+                            "sub_items": [
+                                {"id": f"item-4-1-1", "title": f"{topic} High-Performance Serving", "type": "recommended", "summary": f"Optimizing throughput and latency for {topic}."},
+                                {"id": f"item-4-1-2", "title": f"{topic} Microservice Architecture", "type": "recommended", "summary": f"Building scalable microservices around {topic}."}
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
 
     return {
         "topic": topic,

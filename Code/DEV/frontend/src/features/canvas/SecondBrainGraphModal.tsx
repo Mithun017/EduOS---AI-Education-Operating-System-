@@ -179,14 +179,14 @@ export const SecondBrainGraphModal: React.FC<SecondBrainGraphModalProps> = ({
       const coreId = 'core-0';
       const fallbackNodes: Node3D[] = [
         { id: coreId, label: topicName, type: 'core', summary: `Core concept analysis for ${topicName}.`, x: 0, y: 0, z: 0, tier: 0 },
-        { id: 't1-0', label: `${topicName} Foundations`, type: 'branch', summary: `Foundational mathematical principles of ${topicName}.`, x: -340, y: 80, z: 180, tier: 1 },
-        { id: 't1-1', label: `Architectural Nodes`, type: 'branch', summary: `Structural components and transformations.`, x: 340, y: -80, z: -180, tier: 1 },
-        { id: 't1-2', label: `Mathematical Formulations`, type: 'math', summary: 'Derivative chain-rules & matrix operations.', x: 180, y: 300, z: -340, tier: 1 },
-        { id: 't1-3', label: `Real-World Deployment`, type: 'component', summary: 'Practical applications & production models.', x: -200, y: -300, z: 280, tier: 1 },
-        { id: 't2-0', label: 'Feature Map Normalization', type: 'math', summary: 'Standardizes vector scaling across layers.', x: -520, y: 165, z: 360, tier: 2 },
-        { id: 't2-1', label: 'Non-Linear Activations', type: 'math', summary: 'Applies threshold functions to embeddings.', x: 520, y: -220, z: 320, tier: 2 },
-        { id: 't2-2', label: 'Dimensionality Reduction', type: 'application', summary: 'Compresses spatial dimensions efficiently.', x: 420, y: 440, z: -460, tier: 2 },
-        { id: 't2-3', label: 'Gradient Loss Optimization', type: 'component', summary: 'Computes loss derivatives for weight updates.', x: -460, y: -420, z: -380, tier: 2 }
+        { id: 't1-0', label: `${topicName} Foundations`, type: 'branch', summary: `Foundational mathematical principles of ${topicName}.`, x: -360, y: 90, z: 200, tier: 1 },
+        { id: 't1-1', label: `${topicName} Core Mechanics`, type: 'branch', summary: `Structural components and transformations of ${topicName}.`, x: 360, y: -90, z: -200, tier: 1 },
+        { id: 't1-2', label: `${topicName} Theoretical Formulations`, type: 'math', summary: `Formulations and analytical equations of ${topicName}.`, x: 200, y: 320, z: -360, tier: 1 },
+        { id: 't1-3', label: `${topicName} Real-World Deployment`, type: 'component', summary: `Practical applications & execution models of ${topicName}.`, x: -220, y: -320, z: 300, tier: 1 },
+        { id: 't2-0', label: `${topicName} State Calibration`, type: 'math', summary: `Standardizes representation scaling for ${topicName}.`, x: -540, y: 175, z: 380, tier: 2 },
+        { id: 't2-1', label: `${topicName} Functional Operators`, type: 'math', summary: `Core mathematical functions for ${topicName}.`, x: 540, y: -240, z: 340, tier: 2 },
+        { id: 't2-2', label: `${topicName} System Optimization`, type: 'application', summary: `Optimizes execution efficiency of ${topicName}.`, x: 440, y: 460, z: -480, tier: 2 },
+        { id: 't2-3', label: `${topicName} Integration Pipelines`, type: 'component', summary: `Deploys ${topicName} into production microservices.`, x: -480, y: -440, z: -400, tier: 2 }
       ];
 
       const fallbackEdges: Edge3D[] = [
