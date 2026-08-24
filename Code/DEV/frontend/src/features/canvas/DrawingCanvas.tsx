@@ -45,6 +45,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
   const handleCardDragStart = (e: React.PointerEvent, objId: string, currentX: number, currentY: number) => {
     e.stopPropagation();
+    canvasRef.current?.setPointerCapture(e.pointerId);
     setDraggingCardId(objId);
     setDragOffset({
       x: e.clientX - currentX,
