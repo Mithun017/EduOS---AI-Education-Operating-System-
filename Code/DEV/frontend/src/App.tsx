@@ -3,6 +3,7 @@ import { useEduOSStore } from './store/store';
 import { loginUser } from './lib/api';
 import { TeacherAssistant } from './features/teacher-assistant/TeacherAssistant';
 import { StudentAssistant } from './features/student-assistant/StudentAssistant';
+import { FloatingChatWidget } from './features/chat/FloatingChatWidget';
 import {
   Laptop,
   Users,
@@ -711,6 +712,9 @@ function App() {
           {viewMode === 'teacher' ? <TeacherAssistant /> : <StudentAssistant />}
         </div>
       </main>
+
+      {/* Floating Bottom-Right Chat Access & Interface */}
+      <FloatingChatWidget />
     </div>
   );
 }
