@@ -173,10 +173,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
     const connectWebSocket = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsHost = (window.location.port === '5173' || window.location.port === '3000')
-        ? '127.0.0.1:8000'
-        : window.location.host;
-      const wsUrl = `${protocol}//${wsHost}/ws/classroom/${roomId}`;
+      const wsUrl = `${protocol}//${window.location.host}/ws/classroom/${roomId}`;
 
       console.log(`Connecting to Classroom WebSocket: ${wsUrl}`);
       const ws = new WebSocket(wsUrl);
