@@ -87,17 +87,13 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } catch {}
 
-    const toolbarEl = toolbarRef.current;
-    const startLeft = toolbarEl ? toolbarEl.getBoundingClientRect().left : 0;
-    const startTop = toolbarEl ? toolbarEl.getBoundingClientRect().top : 0;
-
     dragStartRef.current = {
       startX: e.clientX,
       startY: e.clientY,
       initialX: position.x,
       initialY: position.y,
-      startToolbarLeft: startLeft,
-      startToolbarTop: startTop,
+      startToolbarLeft: 0,
+      startToolbarTop: 0,
       hasMoved: false
     };
     setIsDragging(true);
@@ -111,36 +107,25 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       dragStartRef.current.hasMoved = true;
     }
 
-    // Find parent canvas board container to strictly clamp boundaries
+    const rawX = dragStartRef.current.initialX + dx;
+    const rawY = dragStartRef.current.initialY + dy;
+
+    // Find parent canvas board container to clamp inside bounds
     const canvasContainer = toolbarRef.current.closest('.relative') || toolbarRef.current.parentElement;
     if (canvasContainer) {
       const canvasRect = canvasContainer.getBoundingClientRect();
       const toolbarRect = toolbarRef.current.getBoundingClientRect();
 
-      const padding = 8; // Margin inside canvas border
-      const targetScreenLeft = dragStartRef.current.startToolbarLeft + dx;
-      const targetScreenTop = dragStartRef.current.startToolbarTop + dy;
+      const padding = 12;
+      const maxPosX = Math.max(0, canvasRect.width - toolbarRect.width - (padding * 2));
+      const maxPosY = Math.max(0, canvasRect.height - toolbarRect.height - (padding * 2));
 
-      const minScreenLeft = canvasRect.left + padding;
-      const maxScreenLeft = Math.max(minScreenLeft, canvasRect.right - toolbarRect.width - padding);
-      const minScreenTop = canvasRect.top + padding;
-      const maxScreenTop = Math.max(minScreenTop, canvasRect.bottom - toolbarRect.height - padding);
+      const clampedX = Math.max(0, Math.min(maxPosX, rawX));
+      const clampedY = Math.max(0, Math.min(maxPosY, rawY));
 
-      const clampedScreenLeft = Math.max(minScreenLeft, Math.min(maxScreenLeft, targetScreenLeft));
-      const clampedScreenTop = Math.max(minScreenTop, Math.min(maxScreenTop, targetScreenTop));
-
-      const finalDx = clampedScreenLeft - dragStartRef.current.startToolbarLeft;
-      const finalDy = clampedScreenTop - dragStartRef.current.startToolbarTop;
-
-      setPosition({
-        x: dragStartRef.current.initialX + finalDx,
-        y: dragStartRef.current.initialY + finalDy
-      });
+      setPosition({ x: clampedX, y: clampedY });
     } else {
-      setPosition({
-        x: dragStartRef.current.initialX + dx,
-        y: dragStartRef.current.initialY + dy
-      });
+      setPosition({ x: Math.max(0, rawX), y: Math.max(0, rawY) });
     }
   };
 
