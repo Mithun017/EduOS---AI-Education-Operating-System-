@@ -78,7 +78,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   };
 
   return (
-    <div className="flex items-center gap-1.5 p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 transition-all flex-wrap relative">
+    <div className="w-fit max-w-full inline-flex items-center gap-1.5 p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 transition-all flex-wrap relative justify-center">
       {/* 1. Pen Tool Button with Hover Popover */}
       <div
         className="relative"
