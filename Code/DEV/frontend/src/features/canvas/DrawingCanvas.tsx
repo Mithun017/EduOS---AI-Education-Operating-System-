@@ -225,6 +225,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           } else if (msgType === 'canvas_sync') {
             if (Array.isArray(data.canvas_objects)) {
               setObjects(data.canvas_objects);
+              objectsRef.current = data.canvas_objects;
               setHistory([data.canvas_objects]);
               setHistoryIndex(0);
               const newSeq = data.seq || 0;
@@ -242,21 +243,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             }
           } else if (msgType === 'canvas_update') {
             setRemoteLiveStroke(null);
-            const currentSeq = lastSeqRef.current;
-            // Sequence Gap Detection: If gap detected, request fresh full sync
-            if (data.seq && currentSeq > 0 && data.seq > currentSeq + 1) {
-              console.warn(`Sequence gap detected (expected ${currentSeq + 1}, got ${data.seq}). Requesting full canvas sync.`);
-              ws.send(JSON.stringify({ type: 'request_sync' }));
-            } else {
-              if (Array.isArray(data.canvas_objects)) {
-                setObjects(data.canvas_objects);
-                const newSeq = data.seq || currentSeq + 1;
-                setLastSeq(newSeq);
-                lastSeqRef.current = newSeq;
-              }
+            if (Array.isArray(data.canvas_objects)) {
+              setObjects(data.canvas_objects);
+              objectsRef.current = data.canvas_objects;
+              const newSeq = data.seq || (lastSeqRef.current + 1);
+              setLastSeq(newSeq);
+              lastSeqRef.current = newSeq;
             }
           } else if (msgType === 'canvas_clear') {
             setObjects([]);
+            objectsRef.current = [];
             setRemoteLiveStroke(null);
             if (data.seq) {
               setLastSeq(data.seq);
@@ -340,6 +336,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
   // Push new state to undo/redo history
   const pushToHistory = (newObjects: CanvasObject[]) => {
+    objectsRef.current = newObjects;
     const updatedHistory = history.slice(0, historyIndex + 1);
     setHistory([...updatedHistory, newObjects]);
     setHistoryIndex(updatedHistory.length);
@@ -347,7 +344,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     triggerAutoSave(newObjects);
 
     // Broadcast WebSocket update to room if Teacher
-    if (roomRoleRef.current === 'teacher' && wsRef.current?.readyState === WebSocket.OPEN) {
+    if ((viewMode === 'teacher' || roomRoleRef.current === 'teacher') && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'canvas_update',
         canvas_objects: newObjects
