@@ -6,6 +6,7 @@ import { StudentAssistant } from './features/student-assistant/StudentAssistant'
 import { FloatingChatWidget } from './features/chat/FloatingChatWidget';
 import { ShareClassModal } from './features/canvas/ShareClassModal';
 import { JoinClassModal } from './features/canvas/JoinClassModal';
+import { EndClassModal } from './features/canvas/EndClassModal';
 import { LoginModal } from './features/auth/LoginModal';
 import {
   Sun,
@@ -18,7 +19,8 @@ import {
   FolderOpen,
   Share2,
   LogOut,
-  UserCheck
+  UserCheck,
+  Square
 } from 'lucide-react';
 
 function App() {
@@ -40,15 +42,31 @@ function App() {
     roomSecret,
     roomRole,
     studentDisplayName,
-    setRoomSession
+    setRoomSession,
+    roomWsSend
   } = useEduOSStore();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [isEndClassModalOpen, setIsEndClassModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [pendingJoinRoomId, setPendingJoinRoomId] = useState<string | null>(null);
   const [pendingJoinRoomSecret, setPendingJoinRoomSecret] = useState<string | null>(null);
+
+  const handleConfirmEndClass = (title: string, saveCanvas: boolean) => {
+    if (roomWsSend) {
+      roomWsSend({
+        type: 'complete_session',
+        title: title,
+        save_requested: saveCanvas
+      });
+    }
+
+    setRoomSession({ roomId: null });
+    localStorage.removeItem('eduos_student_name');
+    setIsEndClassModalOpen(false);
+  };
 
   // Sync route path with viewMode and handle query parameters
   useEffect(() => {
@@ -196,16 +214,29 @@ function App() {
 
         {/* Global Controls & Active Profile */}
         <div className="flex items-center gap-2.5">
-          {/* Share Class Button for Teachers */}
+          {/* Share Class & End Class Buttons for Teachers */}
           {user?.role === 'teacher' && (
-            <button
-              onClick={() => handleOpenShareClass(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--accent-primary-soft)] hover:bg-[var(--accent-primary)] hover:text-white text-[var(--accent-primary)] text-xs font-bold transition-all cursor-pointer border border-[var(--border-subtle)] shadow-sm active:scale-95 shrink-0"
-              title="Share Live Classroom Session with Students"
-            >
-              <Share2 size={14} />
-              <span>Share Class</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleOpenShareClass(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--accent-primary-soft)] hover:bg-[var(--accent-primary)] hover:text-white text-[var(--accent-primary)] text-xs font-bold transition-all cursor-pointer border border-[var(--border-subtle)] shadow-sm active:scale-95 shrink-0"
+                title="Share Live Classroom Session with Students"
+              >
+                <Share2 size={14} />
+                <span>Share Class</span>
+              </button>
+
+              {roomId && (
+                <button
+                  onClick={() => setIsEndClassModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-400 hover:text-white text-xs font-bold transition-all cursor-pointer border border-rose-500/30 shadow-sm active:scale-95 shrink-0"
+                  title="End Active Classroom Session"
+                >
+                  <Square size={13} fill="currentColor" />
+                  <span>End Class</span>
+                </button>
+              )}
+            </div>
           )}
 
           {/* Theme Toggle */}
@@ -360,6 +391,11 @@ function App() {
       {/* Real-Time Classroom Modals */}
       <ShareClassModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} />
       <JoinClassModal isOpen={isJoinModalOpen} roomCode={roomCode || 'CLASSROOM'} onJoin={handleJoinClassSubmit} />
+      <EndClassModal
+        isOpen={isEndClassModalOpen}
+        onClose={() => setIsEndClassModalOpen(false)}
+        onConfirmEnd={handleConfirmEndClass}
+      />
       <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
     </div>
   );

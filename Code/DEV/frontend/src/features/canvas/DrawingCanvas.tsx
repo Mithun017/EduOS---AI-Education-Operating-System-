@@ -184,6 +184,23 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
       wsRef.current = ws;
 
       setRoomWsSend((msg: any) => {
+        if (msg && msg.type === 'complete_session') {
+          const currentCanvasObjects = objectsRef.current || [];
+          if (msg.save_requested && currentCanvasObjects.length > 0) {
+            saveCanvasToHistory(currentCanvasObjects, msg.title || 'Classroom Session');
+            setSaveNotification(true);
+            setTimeout(() => setSaveNotification(false), 3000);
+          }
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({
+              type: 'complete_session',
+              title: msg.title || 'Classroom Session',
+              canvas_objects: currentCanvasObjects
+            }));
+          }
+          return;
+        }
+
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify(msg));
         }
@@ -337,12 +354,6 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   // Push new state to undo/redo history
   const pushToHistory = (newObjects: CanvasObject[]) => {
     objectsRef.current = newObjects;
-    const activeTopicId = selectedTopic?.id || 'dynamic-ai-scope';
-    try {
-      localStorage.setItem(`eduos-canvas-${activeTopicId}`, JSON.stringify(newObjects));
-    } catch (e) {
-      // ignore storage quota errors
-    }
     const updatedHistory = history.slice(0, historyIndex + 1);
     setHistory([...updatedHistory, newObjects]);
     setHistoryIndex(updatedHistory.length);
