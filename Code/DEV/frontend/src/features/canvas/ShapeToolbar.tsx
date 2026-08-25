@@ -66,7 +66,16 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [_isDragging, setIsDragging] = useState(false);
-  const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number; hasMoved: boolean } | null>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    startToolbarLeft: number;
+    startToolbarTop: number;
+    hasMoved: boolean;
+  } | null>(null);
 
   const [showPenPopover, setShowPenPopover] = useState(false);
   const [showAnalysisPopover, setShowAnalysisPopover] = useState(false);
@@ -77,27 +86,62 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
     try {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
     } catch {}
+
+    const toolbarEl = toolbarRef.current;
+    const startLeft = toolbarEl ? toolbarEl.getBoundingClientRect().left : 0;
+    const startTop = toolbarEl ? toolbarEl.getBoundingClientRect().top : 0;
+
     dragStartRef.current = {
       startX: e.clientX,
       startY: e.clientY,
       initialX: position.x,
       initialY: position.y,
+      startToolbarLeft: startLeft,
+      startToolbarTop: startTop,
       hasMoved: false
     };
     setIsDragging(true);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!dragStartRef.current) return;
+    if (!dragStartRef.current || !toolbarRef.current) return;
     const dx = e.clientX - dragStartRef.current.startX;
     const dy = e.clientY - dragStartRef.current.startY;
     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
       dragStartRef.current.hasMoved = true;
     }
-    setPosition({
-      x: dragStartRef.current.initialX + dx,
-      y: dragStartRef.current.initialY + dy
-    });
+
+    // Find parent canvas board container to strictly clamp boundaries
+    const canvasContainer = toolbarRef.current.closest('.relative') || toolbarRef.current.parentElement;
+    if (canvasContainer) {
+      const canvasRect = canvasContainer.getBoundingClientRect();
+      const toolbarRect = toolbarRef.current.getBoundingClientRect();
+
+      const padding = 8; // Margin inside canvas border
+      const targetScreenLeft = dragStartRef.current.startToolbarLeft + dx;
+      const targetScreenTop = dragStartRef.current.startToolbarTop + dy;
+
+      const minScreenLeft = canvasRect.left + padding;
+      const maxScreenLeft = Math.max(minScreenLeft, canvasRect.right - toolbarRect.width - padding);
+      const minScreenTop = canvasRect.top + padding;
+      const maxScreenTop = Math.max(minScreenTop, canvasRect.bottom - toolbarRect.height - padding);
+
+      const clampedScreenLeft = Math.max(minScreenLeft, Math.min(maxScreenLeft, targetScreenLeft));
+      const clampedScreenTop = Math.max(minScreenTop, Math.min(maxScreenTop, targetScreenTop));
+
+      const finalDx = clampedScreenLeft - dragStartRef.current.startToolbarLeft;
+      const finalDy = clampedScreenTop - dragStartRef.current.startToolbarTop;
+
+      setPosition({
+        x: dragStartRef.current.initialX + finalDx,
+        y: dragStartRef.current.initialY + finalDy
+      });
+    } else {
+      setPosition({
+        x: dragStartRef.current.initialX + dx,
+        y: dragStartRef.current.initialY + dy
+      });
+    }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -137,6 +181,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   if (!isExpanded) {
     return (
       <div
+        ref={toolbarRef}
         style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -154,6 +199,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   // EXPANDED MODE: Full movable toolbar container
   return (
     <div
+      ref={toolbarRef}
       style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
       className="w-fit max-w-full inline-flex items-center gap-1.5 p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 transition-all flex-wrap relative justify-center select-none animate-fade-in"
     >
