@@ -5,6 +5,7 @@ import { X, GripHorizontal } from 'lucide-react';
 import { useEduOSStore } from '../../store/store';
 import { ShapeToolbar } from './ShapeToolbar';
 import { FormulaConfirmDialog } from './FormulaConfirmDialog';
+import { SaveCanvasModal } from './SaveCanvasModal';
 import { SecondBrainGraphModal } from './SecondBrainGraphModal';
 import { fetchCanvasSession, saveCanvasObjects, recognizeFormula, searchWebForSelection, visualizeConceptForSelection } from '../../lib/api';
 import type { CanvasObject } from '../../lib/api';
@@ -690,19 +691,19 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     }
   };
 
-  // Handle manual Save Canvas to History
+  // Save Modal State
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+
+  // Handle manual Save Canvas to History via custom Save modal
   const handleSaveCanvas = () => {
-    if (objects.length === 0) {
-      alert("Canvas is empty. Draw or write something on the whiteboard before saving!");
-      return;
-    }
-    const defaultTitle = selectedTopic ? `${selectedTopic.name} Note` : `Whiteboard Session #${savedCanvasHistory.length + 1}`;
-    const userTitle = prompt("Save Whiteboard Session to History:\nEnter session title:", defaultTitle);
-    if (userTitle !== null) {
-      saveCanvasToHistory(objects, userTitle.trim() || defaultTitle);
-      setSaveNotification(true);
-      setTimeout(() => setSaveNotification(false), 2500);
-    }
+    setIsSaveModalOpen(true);
+  };
+
+  const handleConfirmSaveModal = (title: string) => {
+    setIsSaveModalOpen(false);
+    saveCanvasToHistory(objects, title);
+    setSaveNotification(true);
+    setTimeout(() => setSaveNotification(false), 2500);
   };
 
   // Listen for canvas load requests from Left History Sidebar
@@ -1107,6 +1108,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         onClose={() => setIsConfirmOpen(false)}
         recognizedText={recognizedFormulaText}
         onConfirm={handleConfirmFormula}
+      />
+
+      {/* Custom Glassmorphic Save Session Modal */}
+      <SaveCanvasModal
+        isOpen={isSaveModalOpen}
+        onClose={() => setIsSaveModalOpen(false)}
+        onSave={handleConfirmSaveModal}
+        defaultTitle={selectedTopic ? `${selectedTopic.name} Note` : `Whiteboard Session #${savedCanvasHistory.length + 1}`}
+        objectCount={objects.length}
       />
 
       {/* Second Brain Knowledge Graph Modal */}
