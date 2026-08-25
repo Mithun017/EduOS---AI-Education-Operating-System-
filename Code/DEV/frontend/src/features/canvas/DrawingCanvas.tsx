@@ -726,8 +726,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
       )}
 
       {/* Top Floating Toolbar */}
-      <div className="absolute inset-0 pointer-events-none z-40 p-3">
-        <div className="pointer-events-auto w-fit">
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 max-w-[95%] flex justify-center pointer-events-none">
+        <div className="pointer-events-auto">
           <ShapeToolbar
           activeTool={activeTool}
           setActiveTool={setActiveTool}
