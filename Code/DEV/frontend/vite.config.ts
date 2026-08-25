@@ -13,7 +13,7 @@ export default defineConfig({
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') return;
+            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED') return;
             console.error('API Proxy Error:', err);
           });
         }
@@ -24,7 +24,7 @@ export default defineConfig({
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') return;
+            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED') return;
             console.error('WS Proxy Error:', err);
           });
         }
@@ -40,7 +40,7 @@ export default defineConfig({
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') return;
+            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED') return;
             console.error('API Proxy Error:', err);
           });
         }
@@ -51,7 +51,7 @@ export default defineConfig({
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED') return;
+            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED') return;
             console.error('WS Proxy Error:', err);
           });
         }

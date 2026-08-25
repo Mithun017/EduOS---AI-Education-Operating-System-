@@ -981,8 +981,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         </div>
       )}
 
-      {/* Teacher Disconnected Alert Banner */}
-      {roomId && !isTeacherConnected && (
+      {/* Teacher Disconnected Alert Banner (For Students Only) */}
+      {roomRole === 'student' && roomId && !isTeacherConnected && (
         <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 bg-amber-500/90 text-slate-950 font-bold text-xs rounded-xl shadow-2xl border border-amber-400 flex items-center gap-2 animate-pulse select-none">
           <span>⚠️ Teacher disconnected or reconnecting... Canvas updates paused.</span>
         </div>
