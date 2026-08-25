@@ -49,3 +49,9 @@ coverage.xml
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Local Deployment Scripts & Notes
+Deploy.md
+Deploy.bat
+Code/DEV/Deploy.md
+Code/DEV/Deploy.bat
