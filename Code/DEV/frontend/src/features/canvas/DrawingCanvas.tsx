@@ -51,6 +51,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const reconnectTimerRef = useRef<any>(null);
   const canvasRef = useRef<SVGSVGElement>(null);
   const [saveNotification, setSaveNotification] = useState(false);
+  const [sessionCompletedNotice, setSessionCompletedNotice] = useState<string | null>(null);
 
   // Live in-progress stroke preview streamed from teacher to students
   const [remoteLiveStroke, setRemoteLiveStroke] = useState<{ points: Point[]; color: string; width: number } | null>(null);
@@ -259,6 +260,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
               setLastSeq(data.seq);
               lastSeqRef.current = data.seq;
             }
+          } else if (msgType === 'session_completed') {
+            const completedTitle = data.title || 'Live Classroom Session';
+            const completedObjects = Array.isArray(data.canvas_objects) ? data.canvas_objects : objects;
+            saveCanvasToHistory(completedObjects, completedTitle);
+            setSessionCompletedNotice(completedTitle);
           } else if (msgType === 'presence_update') {
             setConnectedStudents(data.connected_students || [], data.teacher_connected ?? true);
           } else if (msgType === 'teacher_disconnected') {
@@ -941,6 +947,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     saveCanvasToHistory(objects, title);
     setSaveNotification(true);
     setTimeout(() => setSaveNotification(false), 2500);
+
+    // If Teacher in a live room session, broadcast completion event so all students save it to their history too!
+    if (roomRoleRef.current === 'teacher' && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'complete_session',
+        title: title,
+        canvas_objects: objects
+      }));
+    }
   };
 
   // Listen for canvas load requests from Left History Sidebar
@@ -974,6 +989,22 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
       {saveNotification && (
         <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xl border border-emerald-400/50 flex items-center gap-2 animate-bounce">
           <span>✓ Canvas Session Saved to History!</span>
+        </div>
+      )}
+
+      {/* Session Completed Notice Banner */}
+      {sessionCompletedNotice && (
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-5 py-3 bg-emerald-600/95 text-white font-bold text-xs rounded-2xl shadow-2xl border border-emerald-300 flex items-center justify-between gap-3 animate-fade-in select-none">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🎉</span>
+            <span>Classroom Session Completed & Saved to your History: <strong>"{sessionCompletedNotice}"</strong></span>
+          </div>
+          <button
+            onClick={() => setSessionCompletedNotice(null)}
+            className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
+          >
+            ✕
+          </button>
         </div>
       )}
 
