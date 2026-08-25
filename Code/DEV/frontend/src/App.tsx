@@ -56,16 +56,27 @@ function App() {
       // Cleanly clear any persisted teacher session & force student role
       setUser(null);
       setViewMode('student');
+
+      // Check synchronous localStorage for saved student name for active session
+      const savedName = localStorage.getItem('eduos_student_name');
+      const activeName = (savedName && savedName.trim()) || (studentDisplayName && studentDisplayName.trim() !== 'Student' ? studentDisplayName : '');
+
       setRoomSession({
         roomId: roomParam,
         roomCode: 'CLASSROOM',
         roomSecret: secretParam,
         roomRole: 'student',
-        studentDisplayName: studentDisplayName || 'Student'
+        studentDisplayName: activeName || 'Student'
       });
       setPendingJoinRoomId(roomParam);
       setPendingJoinRoomSecret(secretParam);
-      setIsJoinModalOpen(true);
+
+      // Only open modal if student has never set their name for this session!
+      if (activeName && activeName !== 'Student') {
+        setIsJoinModalOpen(false);
+      } else {
+        setIsJoinModalOpen(true);
+      }
     } else if (!user && !roomId) {
       // If no room parameter and not logged in, prompt LoginModal
       setIsLoginModalOpen(true);
@@ -79,6 +90,7 @@ function App() {
 
   const handleLogout = () => {
     setUser(null);
+    localStorage.removeItem('eduos_student_name');
     setRoomSession({ roomId: null });
     setIsLoginModalOpen(true);
   };
@@ -122,6 +134,8 @@ function App() {
 
   const handleJoinClassSubmit = (displayName: string) => {
     if (!pendingJoinRoomId || !pendingJoinRoomSecret) return;
+
+    localStorage.setItem('eduos_student_name', displayName);
 
     setRoomSession({
       roomId: pendingJoinRoomId,

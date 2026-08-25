@@ -265,6 +265,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             const completedObjects = Array.isArray(data.canvas_objects) ? data.canvas_objects : objects;
             saveCanvasToHistory(completedObjects, completedTitle);
             setSessionCompletedNotice(completedTitle);
+            localStorage.removeItem('eduos_student_name');
           } else if (msgType === 'presence_update') {
             setConnectedStudents(data.connected_students || [], data.teacher_connected ?? true);
           } else if (msgType === 'teacher_disconnected') {
