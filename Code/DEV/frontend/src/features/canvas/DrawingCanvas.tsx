@@ -337,6 +337,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   // Push new state to undo/redo history
   const pushToHistory = (newObjects: CanvasObject[]) => {
     objectsRef.current = newObjects;
+    const activeTopicId = selectedTopic?.id || 'dynamic-ai-scope';
+    try {
+      localStorage.setItem(`eduos-canvas-${activeTopicId}`, JSON.stringify(newObjects));
+    } catch (e) {
+      // ignore storage quota errors
+    }
     const updatedHistory = history.slice(0, historyIndex + 1);
     setHistory([...updatedHistory, newObjects]);
     setHistoryIndex(updatedHistory.length);
