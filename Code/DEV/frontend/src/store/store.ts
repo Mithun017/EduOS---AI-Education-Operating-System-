@@ -24,6 +24,14 @@ export interface StudentProfile {
   rollNumber: string;
 }
 
+export interface SavedCanvasSession {
+  id: string;
+  title: string;
+  timestamp: string;
+  objects: any[];
+  objectCount: number;
+}
+
 interface EduOSStore {
   user: UserSession | null;
   teachers: TeacherProfile[];
@@ -35,6 +43,8 @@ interface EduOSStore {
   mockMode: boolean;
   theme: 'light' | 'dark';
   canvasModeActive: boolean;
+  savedCanvasHistory: SavedCanvasSession[];
+  activeCanvasSessionToLoad: SavedCanvasSession | null;
 
   setUser: (user: UserSession | null) => void;
   setSubjects: (subjects: AcademicSubject[]) => void;
@@ -45,6 +55,9 @@ interface EduOSStore {
   setTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
   setCanvasModeActive: (active: boolean) => void;
+  saveCanvasToHistory: (objects: any[], title?: string) => void;
+  deleteCanvasFromHistory: (id: string) => void;
+  loadCanvasSession: (session: SavedCanvasSession | null) => void;
 
   // Dynamic Management Actions
   addTeacher: (name: string, employeeId: string) => void;
@@ -80,8 +93,27 @@ export const useEduOSStore = create<EduOSStore>()(
       mockMode: false,
       theme: getInitialTheme(),
       canvasModeActive: true,
+      savedCanvasHistory: [],
+      activeCanvasSessionToLoad: null,
 
-  setUser: (user) => set({ user }),
+      setUser: (user) => set({ user }),
+      saveCanvasToHistory: (objects: any[], title?: string) => {
+        if (!objects || objects.length === 0) return;
+        const newSession: SavedCanvasSession = {
+          id: `canvas-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          title: title || `Whiteboard Note #${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+          timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          objects,
+          objectCount: objects.length
+        };
+        set((state) => ({
+          savedCanvasHistory: [newSession, ...state.savedCanvasHistory]
+        }));
+      },
+      deleteCanvasFromHistory: (id: string) => set((state) => ({
+        savedCanvasHistory: state.savedCanvasHistory.filter(s => s.id !== id)
+      })),
+      loadCanvasSession: (session: SavedCanvasSession | null) => set({ activeCanvasSessionToLoad: session }),
   setSubjects: (subjects) => {
     set({ subjects });
     if (subjects.length > 0) {

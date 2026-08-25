@@ -21,8 +21,17 @@ interface DrawingCanvasProps {
 }
 
 export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = null }) => {
-  const { user, selectedTopic, mockMode } = useEduOSStore();
+  const {
+    user,
+    selectedTopic,
+    mockMode,
+    saveCanvasToHistory,
+    savedCanvasHistory,
+    activeCanvasSessionToLoad,
+    loadCanvasSession
+  } = useEduOSStore();
   const canvasRef = useRef<SVGSVGElement>(null);
+  const [saveNotification, setSaveNotification] = useState(false);
 
   // Canvas session and objects
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -681,8 +690,40 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     }
   };
 
+  // Handle manual Save Canvas to History
+  const handleSaveCanvas = () => {
+    if (objects.length === 0) {
+      alert("Canvas is empty. Draw or write something on the whiteboard before saving!");
+      return;
+    }
+    const defaultTitle = selectedTopic ? `${selectedTopic.name} Note` : `Whiteboard Session #${savedCanvasHistory.length + 1}`;
+    const userTitle = prompt("Save Whiteboard Session to History:\nEnter session title:", defaultTitle);
+    if (userTitle !== null) {
+      saveCanvasToHistory(objects, userTitle.trim() || defaultTitle);
+      setSaveNotification(true);
+      setTimeout(() => setSaveNotification(false), 2500);
+    }
+  };
+
+  // Listen for canvas load requests from Left History Sidebar
+  useEffect(() => {
+    if (activeCanvasSessionToLoad) {
+      setObjects(activeCanvasSessionToLoad.objects);
+      setHistory([activeCanvasSessionToLoad.objects]);
+      setHistoryIndex(0);
+      loadCanvasSession(null); // Reset session loader trigger
+    }
+  }, [activeCanvasSessionToLoad, loadCanvasSession]);
+
   return (
     <div className="relative flex flex-col h-full bg-[var(--glass-bg)] backdrop-blur-md rounded-2xl border border-[var(--border-subtle)] overflow-hidden shadow-2xl">
+      {/* Save Notification Toast */}
+      {saveNotification && (
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xl border border-emerald-400/50 flex items-center gap-2 animate-bounce">
+          <span>✓ Canvas Session Saved to History!</span>
+        </div>
+      )}
+
       {/* Top Floating Toolbar */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40">
         <ShapeToolbar
@@ -704,6 +745,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           onRecognize={handleRecognizeFormula}
           onWebSearch={handleWebSearch}
           onVisualize={handleVisualize}
+          onSaveCanvas={handleSaveCanvas}
           hasSelection={selectedObjectIds.size > 0}
         />
       </div>
