@@ -83,6 +83,7 @@ function App() {
       }
     } else if (pathname === '/teacher') {
       if (viewMode !== 'teacher') setViewMode('teacher');
+      if (roomRole !== 'teacher') setRoomSession({ roomId, roomRole: 'teacher' });
     } else if (pathname === '/login') {
       setIsLoginModalOpen(true);
     }

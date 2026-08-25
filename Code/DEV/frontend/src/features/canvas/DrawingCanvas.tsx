@@ -30,6 +30,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     savedCanvasHistory,
     activeCanvasSessionToLoad,
     loadCanvasSession,
+    viewMode,
     // Real-Time Classroom Room State
     roomId,
     roomSecret,
@@ -1009,8 +1010,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         </div>
       )}
 
-      {/* Top Floating Toolbar (Hidden or Read-Only for Students) */}
-      {roomRole !== 'student' && (
+      {/* Top Floating Toolbar (Hidden for Students in Read-Only Live View) */}
+      {(viewMode === 'teacher' || roomRole !== 'student') && (
         <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 max-w-[95%] flex justify-center pointer-events-none">
           <div className="pointer-events-auto">
             <ShapeToolbar
