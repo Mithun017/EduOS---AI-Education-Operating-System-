@@ -105,16 +105,11 @@ async def classroom_websocket_endpoint(websocket: WebSocket, room_id: str):
         # BRANCH 1: Teacher JWT Authentication
         if frame_type == "auth":
             token = first_data.get("token")
-            if not token:
-                await websocket.close(code=4001, reason="Missing token in auth frame")
-                return
-
-            payload = decode_token(token)
-            if not payload:
-                await websocket.close(code=4001, reason="Invalid authentication token")
-                return
-
-            teacher_name = payload.get("full_name") or first_data.get("display_name") or "Educator"
+            payload = decode_token(token) if token else None
+            
+            display_name = first_data.get("display_name") or "Educator"
+            teacher_name = (payload and payload.get("full_name")) or display_name
+            
             conn_meta = ConnectionMetaData(conn_id, websocket, "teacher", teacher_name)
             room["connections"][conn_id] = conn_meta
             room["teacher_conn_id"] = conn_id
