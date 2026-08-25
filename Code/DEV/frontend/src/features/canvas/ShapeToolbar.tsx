@@ -195,18 +195,28 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       onPointerUp={handlePointerUp}
       className="w-fit max-w-full inline-flex items-center gap-1.5 p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 flex-wrap relative justify-center select-none animate-fade-in cursor-grab active:cursor-grabbing"
     >
-      {/* Drag Handle (User Reference SVG Icon) */}
-      <div
-        onPointerDown={handlePointerDown}
+      {/* Drag & Minimize Button (User Reference SVG Icon) */}
+      <button
+        type="button"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          handlePointerDown(e);
+        }}
         onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        className="p-1 text-[var(--text-secondary)] hover:text-[var(--accent-primary)] cursor-grab active:cursor-grabbing hover:bg-[var(--accent-primary-soft)] rounded-xl transition-colors flex items-center justify-center"
-        title="Drag toolbar to move anywhere"
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          if (dragStartRef.current && !dragStartRef.current.hasMoved) {
+            setIsExpanded(false);
+          }
+          handlePointerUp(e);
+        }}
+        className="p-1 text-[var(--text-secondary)] hover:text-[var(--accent-primary)] cursor-grab active:cursor-grabbing hover:bg-[var(--accent-primary-soft)] rounded-xl transition-all flex items-center justify-center group"
+        title="Click to minimize back to round button (Drag to move)"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor" className="group-hover:scale-110 transition-transform">
           <path d="m480-360 160-160H320l160 160Zm0 280q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/>
         </svg>
-      </div>
+      </button>
 
       <div className="h-5 w-[1px] bg-[var(--border-subtle)] mx-0.5" />
       {/* 1. Pen Tool Button with Hover Popover */}
