@@ -64,7 +64,9 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   hasSelection: _hasSelection,
 }) => {
   const [showPenPopover, setShowPenPopover] = useState(false);
+  const [showAnalysisPopover, setShowAnalysisPopover] = useState(false);
   const popoverTimeoutRef = useRef<any>(null);
+  const analysisTimeoutRef = useRef<any>(null);
 
   const handleMouseEnterPen = () => {
     if (popoverTimeoutRef.current) clearTimeout(popoverTimeoutRef.current);
@@ -74,6 +76,17 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   const handleMouseLeavePen = () => {
     popoverTimeoutRef.current = setTimeout(() => {
       setShowPenPopover(false);
+    }, 300);
+  };
+
+  const handleMouseEnterAnalysis = () => {
+    if (analysisTimeoutRef.current) clearTimeout(analysisTimeoutRef.current);
+    setShowAnalysisPopover(true);
+  };
+
+  const handleMouseLeaveAnalysis = () => {
+    analysisTimeoutRef.current = setTimeout(() => {
+      setShowAnalysisPopover(false);
     }, 300);
   };
 
@@ -256,34 +269,76 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
 
       <div className="h-5 w-[1px] bg-[var(--border-subtle)] mx-0.5" />
 
-      {/* 3. THE 3 AI ACTION BUTTONS (Grounded in OCR + Natural Human Language Understanding) */}
-      <div className="flex items-center gap-1.5">
+      {/* 3. AI ANALYSIS BUTTON WITH HOVER POPOVER */}
+      <div
+        className="relative"
+        onMouseEnter={handleMouseEnterAnalysis}
+        onMouseLeave={handleMouseLeaveAnalysis}
+      >
         <button
-          onClick={onRecognize}
-          className="flex items-center gap-1 px-3 py-1 bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-xl text-xs font-bold transition-all shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
-          title="Recognize handwriting/math with OCR & plot mathematical curves"
+          onClick={() => setShowAnalysisPopover(!showAnalysisPopover)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-xl text-xs font-bold transition-all shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
+          title="AI Analysis Tools (Plot Math, Visualize AI, OCR & Web Search)"
         >
-          <BarChart2 size={13} />
-          <span>Plot Math</span>
+          <Sparkles size={14} />
+          <span>Analysis</span>
+          <ChevronDown size={12} className={`transition-transform duration-200 ${showAnalysisPopover ? 'rotate-180' : ''}`} />
         </button>
 
-        <button
-          onClick={onVisualize}
-          className="flex items-center gap-1 px-3 py-1 bg-[var(--glass-bg)] text-[var(--accent-primary)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-xl text-xs font-bold transition-all shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
-          title="Analyze handwriting/text with Vision AI & generate conceptual visualization breakdown"
-        >
-          <Sparkles size={13} />
-          <span>Visualize AI</span>
-        </button>
+        {/* Hover / Click Popover Menu for AI Analysis Tools */}
+        {showAnalysisPopover && (
+          <div
+            className="absolute top-full right-0 mt-2 p-2 bg-[var(--card-bg)] backdrop-blur-2xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 min-w-[210px] space-y-1 animate-fade-in"
+            onMouseEnter={handleMouseEnterAnalysis}
+            onMouseLeave={handleMouseLeaveAnalysis}
+          >
+            <div className="px-2 py-1 border-b border-[var(--border-subtle)] mb-1">
+              <span className="text-[9px] font-extrabold uppercase text-[var(--text-secondary)] tracking-wider">AI Analysis Tools</span>
+            </div>
 
-        <button
-          onClick={onWebSearch}
-          className="flex items-center gap-1.5 px-3.5 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-xl text-xs font-bold shadow-md hover:scale-105 active:scale-95 transition-all cursor-pointer"
-          title="OCR handwriting & search web research results with natural human language understanding"
-        >
-          <Globe size={13} />
-          <span>OCR & Web Search</span>
-        </button>
+            <button
+              onClick={() => {
+                onRecognize();
+                setShowAnalysisPopover(false);
+              }}
+              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)] hover:text-[var(--accent-primary)] transition-all cursor-pointer text-left"
+            >
+              <BarChart2 size={14} className="text-[var(--accent-primary)]" />
+              <div>
+                <div className="font-bold">Plot Math</div>
+                <div className="text-[9px] font-normal text-[var(--text-secondary)]">OCR & curve plotting</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                onVisualize();
+                setShowAnalysisPopover(false);
+              }}
+              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)] hover:text-[var(--accent-primary)] transition-all cursor-pointer text-left"
+            >
+              <Sparkles size={14} className="text-[var(--accent-primary)]" />
+              <div>
+                <div className="font-bold">Visualize AI</div>
+                <div className="text-[9px] font-normal text-[var(--text-secondary)]">Conceptual breakdown card</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                onWebSearch();
+                setShowAnalysisPopover(false);
+              }}
+              className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-bold text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)] hover:text-[var(--accent-primary)] transition-all cursor-pointer text-left"
+            >
+              <Globe size={14} className="text-[var(--accent-primary)]" />
+              <div>
+                <div className="font-bold">OCR & Web Search</div>
+                <div className="text-[9px] font-normal text-[var(--text-secondary)]">Grounded Tavily web search</div>
+              </div>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="h-5 w-[1px] bg-[var(--border-subtle)] mx-0.5" />
