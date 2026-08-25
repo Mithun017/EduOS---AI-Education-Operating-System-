@@ -170,6 +170,17 @@ async def classroom_websocket_endpoint(websocket: WebSocket, room_id: str):
             if msg_type == "request_sync":
                 await classroom_manager.send_canvas_sync(room_id, websocket)
 
+            # Live In-Progress Pen Stroke Streaming (Zero Latency Real-Time Sync)
+            elif msg_type == "stroke_preview":
+                if conn_meta.role == "student":
+                    continue
+                await classroom_manager.broadcast_to_room(room_id, {
+                    "type": "stroke_preview",
+                    "stroke_points": data.get("stroke_points", []),
+                    "color": data.get("color", "#D6C8DF"),
+                    "width": data.get("width", 4)
+                }, exclude_conn_id=conn_id)
+
             # 2. Canvas Update Broadcast
             elif msg_type == "canvas_update":
                 # SERVER-SIDE ENFORCEMENT: Drop student canvas edits!

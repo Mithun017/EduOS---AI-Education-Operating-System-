@@ -52,6 +52,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const canvasRef = useRef<SVGSVGElement>(null);
   const [saveNotification, setSaveNotification] = useState(false);
 
+  // Live in-progress stroke preview streamed from teacher to students
+  const [remoteLiveStroke, setRemoteLiveStroke] = useState<{ points: Point[]; color: string; width: number } | null>(null);
+  const lastLiveStreamTimeRef = useRef<number>(0);
+
   // Canvas session and objects
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [objects, setObjects] = useState<CanvasObject[]>([]);
@@ -197,8 +201,18 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
               setHistory([data.canvas_objects]);
               setHistoryIndex(0);
               setLastSeq(data.seq || 0);
+              setRemoteLiveStroke(null);
+            }
+          } else if (msgType === 'stroke_preview') {
+            if (Array.isArray(data.stroke_points)) {
+              setRemoteLiveStroke({
+                points: data.stroke_points,
+                color: data.color || '#D6C8DF',
+                width: data.width || 4
+              });
             }
           } else if (msgType === 'canvas_update') {
+            setRemoteLiveStroke(null);
             // Sequence Gap Detection: If gap detected, request fresh full sync
             if (data.seq && lastSeq > 0 && data.seq > lastSeq + 1) {
               console.warn(`Sequence gap detected (expected ${lastSeq + 1}, got ${data.seq}). Requesting full canvas sync.`);
@@ -211,6 +225,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             }
           } else if (msgType === 'canvas_clear') {
             setObjects([]);
+            setRemoteLiveStroke(null);
             if (data.seq) setLastSeq(data.seq);
           } else if (msgType === 'presence_update') {
             setConnectedStudents(data.connected_students || [], data.teacher_connected ?? true);
@@ -543,7 +558,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
       setSelectedObjectIds(newlySelected);
     } else if (isDrawing) {
       if (activeTool === 'pen') {
-        setCurrentPoints(prev => [...prev, coord]);
+        const nextPoints = [...currentPoints, coord];
+        setCurrentPoints(nextPoints);
+
+        // Stream in-progress stroke preview over WebSocket (throttled ~30ms)
+        const now = Date.now();
+        if (roomRole === 'teacher' && isLiveConnected && wsRef.current?.readyState === WebSocket.OPEN && now - lastLiveStreamTimeRef.current > 30) {
+          lastLiveStreamTimeRef.current = now;
+          wsRef.current.send(JSON.stringify({
+            type: 'stroke_preview',
+            stroke_points: nextPoints,
+            color: strokeColor,
+            width: strokeWidth
+          }));
+        }
       } else if (activeTool === 'eraser') {
         eraseAtPoint(coord);
       }
@@ -555,6 +583,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
     if (draggingCardId) {
       setDraggingCardId(null);
+      pushToHistory(objects);
     }
 
     if (activeTool === 'lasso') {
@@ -1268,7 +1297,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           return null;
         })}
 
-        {/* Current Hand-drawing Path */}
+        {/* Current Hand-drawing Path (Teacher local) */}
         {activeTool === 'pen' && currentPoints.length > 0 && (
           <path
             d={getSvgPathFromStroke(
@@ -1279,6 +1308,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             )}
             fill={strokeColor}
             opacity={strokeWidth > 15 ? 0.5 : 0.9}
+          />
+        )}
+
+        {/* Remote Live Hand-drawing Stroke (Streamed from Teacher to Students in real time) */}
+        {remoteLiveStroke && remoteLiveStroke.points.length > 0 && (
+          <path
+            d={getSvgPathFromStroke(
+              getStroke(
+                remoteLiveStroke.points.map(p => [p.x, p.y]),
+                { size: remoteLiveStroke.width || 4, thinning: 0.5, smoothing: 0.5, streamline: 0.5 }
+              )
+            )}
+            fill={remoteLiveStroke.color || '#D6C8DF'}
+            opacity={0.9}
           />
         )}
 
