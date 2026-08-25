@@ -142,6 +142,11 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     initSession();
   }, [user, selectedTopic, conversationId]);
 
+  const objectsRef = useRef<CanvasObject[]>([]);
+  useEffect(() => {
+    objectsRef.current = objects;
+  }, [objects]);
+
   // Real-Time Classroom WebSocket Collaboration Lifecycle
   useEffect(() => {
     if (!roomId) {
@@ -155,8 +160,10 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
     const connectWebSocket = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host || '127.0.0.1:8000';
-      const wsUrl = `${protocol}//${host}/ws/classroom/${roomId}`;
+      const wsHost = (window.location.port === '5173' || window.location.port === '3000')
+        ? '127.0.0.1:8000'
+        : window.location.host;
+      const wsUrl = `${protocol}//${wsHost}/ws/classroom/${roomId}`;
 
       console.log(`Connecting to Classroom WebSocket: ${wsUrl}`);
       const ws = new WebSocket(wsUrl);
@@ -178,6 +185,12 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             token: user?.token || '',
             display_name: user?.fullName || 'Educator'
           }));
+          if (objectsRef.current.length > 0) {
+            ws.send(JSON.stringify({
+              type: 'canvas_update',
+              canvas_objects: objectsRef.current
+            }));
+          }
         } else {
           ws.send(JSON.stringify({
             type: 'join',
@@ -305,8 +318,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     setObjects(newObjects);
     triggerAutoSave(newObjects);
 
-    // Broadcast WebSocket update to room if Teacher in live room
-    if (roomRole === 'teacher' && isLiveConnected && wsRef.current?.readyState === WebSocket.OPEN) {
+    // Broadcast WebSocket update to room if Teacher
+    if (roomRole === 'teacher' && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'canvas_update',
         canvas_objects: newObjects

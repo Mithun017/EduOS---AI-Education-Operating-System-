@@ -53,6 +53,9 @@ function App() {
     const secretParam = params.get('secret');
 
     if (roomParam && secretParam) {
+      // Cleanly clear any persisted teacher session when opening a student join link
+      setUser(null);
+      setViewMode('student');
       setPendingJoinRoomId(roomParam);
       setPendingJoinRoomSecret(secretParam);
       setIsJoinModalOpen(true);
