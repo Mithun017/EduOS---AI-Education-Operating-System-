@@ -84,6 +84,9 @@ function App() {
     } else if (pathname === '/teacher') {
       if (viewMode !== 'teacher') setViewMode('teacher');
       if (roomRole !== 'teacher') setRoomSession({ roomId, roomRole: 'teacher' });
+      if (!roomId) {
+        handleOpenShareClass(false);
+      }
     } else if (pathname === '/login') {
       setIsLoginModalOpen(true);
     }
@@ -102,9 +105,9 @@ function App() {
     navigate('/login');
   };
 
-  const handleOpenShareClass = async () => {
+  const handleOpenShareClass = async (openModal: boolean = true) => {
     if (roomId && roomSecret) {
-      setIsShareModalOpen(true);
+      if (openModal) setIsShareModalOpen(true);
       return;
     }
 
@@ -122,7 +125,7 @@ function App() {
           roomSecret: data.secret_token,
           roomRole: 'teacher'
         });
-        setIsShareModalOpen(true);
+        if (openModal) setIsShareModalOpen(true);
       }
     } catch (e) {
       console.warn("Classroom HTTP create failed, using client room generation", e);
@@ -135,7 +138,7 @@ function App() {
         roomSecret: fallbackSecret,
         roomRole: 'teacher'
       });
-      setIsShareModalOpen(true);
+      if (openModal) setIsShareModalOpen(true);
     }
   };
 
@@ -187,8 +190,8 @@ function App() {
           {/* Share Class Button for Teachers */}
           {user?.role === 'teacher' && (
             <button
-              onClick={handleOpenShareClass}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-[var(--text-inverse)] transition-all cursor-pointer font-bold text-xs shadow-sm hover:scale-105"
+              onClick={() => handleOpenShareClass(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--accent-primary-soft)] hover:bg-[var(--accent-primary)] hover:text-white text-[var(--accent-primary)] text-xs font-bold transition-all cursor-pointer border border-[var(--border-subtle)] shadow-sm active:scale-95 shrink-0"
               title="Share Live Classroom Session with Students"
             >
               <Share2 size={14} />
