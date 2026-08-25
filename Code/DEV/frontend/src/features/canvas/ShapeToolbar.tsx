@@ -83,9 +83,11 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   const analysisTimeoutRef = useRef<any>(null);
 
   const handlePointerDown = (e: React.PointerEvent) => {
-    try {
-      (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {}
+    if (toolbarRef.current) {
+      try {
+        toolbarRef.current.setPointerCapture(e.pointerId);
+      } catch {}
+    }
 
     dragStartRef.current = {
       startX: e.clientX,
@@ -130,12 +132,14 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    try {
-      (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {}
+    if (toolbarRef.current) {
+      try {
+        toolbarRef.current.releasePointerCapture(e.pointerId);
+      } catch {}
+    }
     setIsDragging(false);
-    if (dragStartRef.current && !dragStartRef.current.hasMoved) {
-      setIsExpanded((prev) => !prev);
+    if (!isExpanded && dragStartRef.current && !dragStartRef.current.hasMoved) {
+      setIsExpanded(true);
     }
     dragStartRef.current = null;
   };
@@ -186,7 +190,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
     <div
       ref={toolbarRef}
       style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
-      className="w-fit max-w-full inline-flex items-center gap-1.5 p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 flex-wrap relative justify-center select-none animate-fade-in"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      className="w-fit max-w-full inline-flex items-center gap-1.5 p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 flex-wrap relative justify-center select-none animate-fade-in cursor-grab active:cursor-grabbing"
     >
       {/* Drag Handle (User Reference SVG Icon) */}
       <div
@@ -207,8 +214,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
         className="relative"
         onMouseEnter={handleMouseEnterPen}
         onMouseLeave={handleMouseLeavePen}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={() => {
             setActiveTool('pen');
             setShowPenPopover(!showPenPopover);
@@ -237,12 +246,14 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
             className="absolute top-full left-0 mt-2 p-3 bg-[var(--card-bg)] backdrop-blur-2xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 min-w-[280px] space-y-3 animate-fade-in"
             onMouseEnter={handleMouseEnterPen}
             onMouseLeave={handleMouseLeavePen}
+            onPointerDown={(e) => e.stopPropagation()}
           >
             {/* Mode Switcher */}
             <div className="space-y-1">
               <span className="text-[9px] font-extrabold uppercase text-[var(--text-secondary)] tracking-wider">Canvas Mode</span>
               <div className="flex gap-1 p-1 bg-[var(--glass-bg)] rounded-xl border border-[var(--border-subtle)]">
                 <button
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => setCanvasMode('writing')}
                   className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     canvasMode === 'writing'
@@ -254,6 +265,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
                   <span>Writing</span>
                 </button>
                 <button
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => setCanvasMode('drawing')}
                   className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     canvasMode === 'drawing'
@@ -274,6 +286,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
                 {COLOR_PALETTE.map((c) => (
                   <button
                     key={c.name}
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => setStrokeColor(c.value)}
                     className={`w-5 h-5 rounded-full transition-transform hover:scale-125 cursor-pointer ${
                       strokeColor === c.value ? 'ring-2 ring-offset-2 ring-[var(--accent-primary)] scale-110' : 'opacity-85'
@@ -292,6 +305,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
                 {MARKER_SIZES.map((s) => (
                   <button
                     key={s.label}
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => setStrokeWidth(s.value)}
                     className={`flex items-center justify-center p-1.5 rounded-lg transition-all cursor-pointer ${
                       strokeWidth === s.value
@@ -310,8 +324,9 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       </div>
 
       {/* 2. Tools (Eraser / Lasso) */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1" onPointerDown={(e) => e.stopPropagation()}>
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setActiveTool('eraser')}
           className={`p-1.5 rounded-xl transition-all cursor-pointer ${
             activeTool === 'eraser'
@@ -324,6 +339,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
         </button>
 
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setActiveTool('lasso')}
           className={`p-1.5 rounded-xl transition-all cursor-pointer ${
             activeTool === 'lasso'
@@ -340,6 +356,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
 
       {/* Grid snap & Undo/Redo */}
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={() => setSnapToGrid(!snapToGrid)}
         className={`p-1.5 rounded-xl transition-all cursor-pointer ${
           snapToGrid
@@ -352,6 +369,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       </button>
 
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={onUndo}
         disabled={!canUndo}
         className={`p-1.5 rounded-xl transition-all ${
@@ -365,6 +383,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       </button>
 
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={onRedo}
         disabled={!canRedo}
         className={`p-1.5 rounded-xl transition-all ${
@@ -384,8 +403,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
         className="relative"
         onMouseEnter={handleMouseEnterAnalysis}
         onMouseLeave={handleMouseLeaveAnalysis}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={() => setShowAnalysisPopover(!showAnalysisPopover)}
           className="flex items-center gap-1.5 px-3 py-1.5 bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-xl text-xs font-bold transition-all shadow-sm hover:scale-105 active:scale-95 cursor-pointer"
           title="AI Analysis Tools (Plot Math, Visualize AI, OCR & Web Search)"
@@ -401,12 +422,14 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
             className="absolute top-full right-0 mt-2 p-2 bg-[var(--card-bg)] backdrop-blur-2xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 min-w-[210px] space-y-1 animate-fade-in"
             onMouseEnter={handleMouseEnterAnalysis}
             onMouseLeave={handleMouseLeaveAnalysis}
+            onPointerDown={(e) => e.stopPropagation()}
           >
             <div className="px-2 py-1 border-b border-[var(--border-subtle)] mb-1">
               <span className="text-[9px] font-extrabold uppercase text-[var(--text-secondary)] tracking-wider">AI Analysis Tools</span>
             </div>
 
             <button
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={() => {
                 onRecognize();
                 setShowAnalysisPopover(false);
@@ -421,6 +444,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
             </button>
 
             <button
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={() => {
                 onVisualize();
                 setShowAnalysisPopover(false);
@@ -435,6 +459,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
             </button>
 
             <button
+              onPointerDown={(e) => e.stopPropagation()}
               onClick={() => {
                 onWebSearch();
                 setShowAnalysisPopover(false);
@@ -455,6 +480,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
 
       {/* 4. SAVE CANVAS BUTTON (User reference SVG Icon) */}
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={onSaveCanvas}
         className="p-1.5 text-[var(--accent-primary)] hover:bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-xl transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
         title="Save Canvas to History"
@@ -466,6 +492,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
 
       {/* Clear Canvas */}
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={onClear}
         className="p-1.5 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer ml-0.5"
         title="Clear canvas"
@@ -477,6 +504,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
 
       {/* Collapse button to shrink back to round icon */}
       <button
+        onPointerDown={(e) => e.stopPropagation()}
         onClick={() => setIsExpanded(false)}
         className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)] rounded-xl transition-all cursor-pointer"
         title="Collapse to round button widget"
