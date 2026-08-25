@@ -143,9 +143,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   }, [user, selectedTopic, conversationId]);
 
   const objectsRef = useRef<CanvasObject[]>([]);
+  const lastSeqRef = useRef<number>(0);
+  const roomRoleRef = useRef<string>(roomRole);
+
   useEffect(() => {
     objectsRef.current = objects;
   }, [objects]);
+
+  useEffect(() => {
+    roomRoleRef.current = roomRole;
+  }, [roomRole]);
+
+  useEffect(() => {
+    lastSeqRef.current = lastSeq;
+  }, [lastSeq]);
 
   // Real-Time Classroom WebSocket Collaboration Lifecycle
   useEffect(() => {
@@ -179,7 +190,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         console.log("Classroom WebSocket Open. Sending Auth/Join frame...");
         reconnectAttemptsRef.current = 0;
 
-        if (roomRole === 'teacher') {
+        if (roomRoleRef.current === 'teacher') {
           ws.send(JSON.stringify({
             type: 'auth',
             token: user?.token || '',
@@ -213,7 +224,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
               setObjects(data.canvas_objects);
               setHistory([data.canvas_objects]);
               setHistoryIndex(0);
-              setLastSeq(data.seq || 0);
+              const newSeq = data.seq || 0;
+              setLastSeq(newSeq);
+              lastSeqRef.current = newSeq;
               setRemoteLiveStroke(null);
             }
           } else if (msgType === 'stroke_preview') {
@@ -226,20 +239,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             }
           } else if (msgType === 'canvas_update') {
             setRemoteLiveStroke(null);
+            const currentSeq = lastSeqRef.current;
             // Sequence Gap Detection: If gap detected, request fresh full sync
-            if (data.seq && lastSeq > 0 && data.seq > lastSeq + 1) {
-              console.warn(`Sequence gap detected (expected ${lastSeq + 1}, got ${data.seq}). Requesting full canvas sync.`);
+            if (data.seq && currentSeq > 0 && data.seq > currentSeq + 1) {
+              console.warn(`Sequence gap detected (expected ${currentSeq + 1}, got ${data.seq}). Requesting full canvas sync.`);
               ws.send(JSON.stringify({ type: 'request_sync' }));
             } else {
               if (Array.isArray(data.canvas_objects)) {
                 setObjects(data.canvas_objects);
-                if (data.seq) setLastSeq(data.seq);
+                const newSeq = data.seq || currentSeq + 1;
+                setLastSeq(newSeq);
+                lastSeqRef.current = newSeq;
               }
             }
           } else if (msgType === 'canvas_clear') {
             setObjects([]);
             setRemoteLiveStroke(null);
-            if (data.seq) setLastSeq(data.seq);
+            if (data.seq) {
+              setLastSeq(data.seq);
+              lastSeqRef.current = data.seq;
+            }
           } else if (msgType === 'presence_update') {
             setConnectedStudents(data.connected_students || [], data.teacher_connected ?? true);
           } else if (msgType === 'teacher_disconnected') {
@@ -319,7 +338,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     triggerAutoSave(newObjects);
 
     // Broadcast WebSocket update to room if Teacher
-    if (roomRole === 'teacher' && wsRef.current?.readyState === WebSocket.OPEN) {
+    if (roomRoleRef.current === 'teacher' && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'canvas_update',
         canvas_objects: newObjects
@@ -576,7 +595,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
         // Stream in-progress stroke preview over WebSocket (throttled ~30ms)
         const now = Date.now();
-        if (roomRole === 'teacher' && isLiveConnected && wsRef.current?.readyState === WebSocket.OPEN && now - lastLiveStreamTimeRef.current > 30) {
+        if (roomRoleRef.current === 'teacher' && wsRef.current?.readyState === WebSocket.OPEN && now - lastLiveStreamTimeRef.current > 30) {
           lastLiveStreamTimeRef.current = now;
           wsRef.current.send(JSON.stringify({
             type: 'stroke_preview',

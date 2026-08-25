@@ -53,9 +53,16 @@ function App() {
     const secretParam = params.get('secret');
 
     if (roomParam && secretParam) {
-      // Cleanly clear any persisted teacher session when opening a student join link
+      // Cleanly clear any persisted teacher session & force student role
       setUser(null);
       setViewMode('student');
+      setRoomSession({
+        roomId: roomParam,
+        roomCode: 'CLASSROOM',
+        roomSecret: secretParam,
+        roomRole: 'student',
+        studentDisplayName: studentDisplayName || 'Student'
+      });
       setPendingJoinRoomId(roomParam);
       setPendingJoinRoomSecret(secretParam);
       setIsJoinModalOpen(true);
