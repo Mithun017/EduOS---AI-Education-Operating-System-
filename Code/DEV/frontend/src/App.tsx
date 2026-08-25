@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useEduOSStore } from './store/store';
-import { loginUser } from './lib/api';
 import { TeacherAssistant } from './features/teacher-assistant/TeacherAssistant';
 import { StudentAssistant } from './features/student-assistant/StudentAssistant';
 import { FloatingChatWidget } from './features/chat/FloatingChatWidget';
 import { ShareClassModal } from './features/canvas/ShareClassModal';
 import { JoinClassModal } from './features/canvas/JoinClassModal';
+import { LoginModal } from './features/auth/LoginModal';
 import {
   Sun,
   Moon,
@@ -15,7 +15,9 @@ import {
   Trash2,
   History,
   FolderOpen,
-  Share2
+  Share2,
+  LogOut,
+  UserCheck
 } from 'lucide-react';
 
 function App() {
@@ -32,12 +34,15 @@ function App() {
     roomId,
     roomCode,
     roomSecret,
+    roomRole,
+    studentDisplayName,
     setRoomSession
   } = useEduOSStore();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [pendingJoinRoomId, setPendingJoinRoomId] = useState<string | null>(null);
   const [pendingJoinRoomSecret, setPendingJoinRoomSecret] = useState<string | null>(null);
 
@@ -51,6 +56,9 @@ function App() {
       setPendingJoinRoomId(roomParam);
       setPendingJoinRoomSecret(secretParam);
       setIsJoinModalOpen(true);
+    } else if (!user && !roomId) {
+      // If no room parameter and not logged in, prompt LoginModal
+      setIsLoginModalOpen(true);
     }
   }, []);
 
@@ -59,30 +67,11 @@ function App() {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
-  // Perform initial login automatically on launch
-  useEffect(() => {
-    if (!user) {
-      loginUser('teacher@demo.eduos.ai', 'password123')
-        .then((session) => {
-          setUser({
-            token: session.access_token,
-            role: session.role,
-            fullName: session.full_name || 'Educator',
-            institutionId: session.institution_id,
-            email: 'teacher@demo.eduos.ai'
-          });
-        })
-        .catch(() => {
-          setUser({
-            token: 'jwt-token-val-12345',
-            role: 'teacher',
-            fullName: 'Educator',
-            institutionId: 'inst-001',
-            email: 'teacher@demo.eduos.ai'
-          });
-        });
-    }
-  }, []);
+  const handleLogout = () => {
+    setUser(null);
+    setRoomSession({ roomId: null });
+    setIsLoginModalOpen(true);
+  };
 
   const handleOpenShareClass = async () => {
     if (roomId && roomSecret) {
@@ -184,8 +173,8 @@ function App() {
             {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
           </button>
 
-          {/* Active User details */}
-          {user && (
+          {/* Active User or Student Guest details */}
+          {user ? (
             <div className="flex items-center gap-2 bg-[var(--glass-bg)] px-3 py-1 rounded-lg border border-[var(--border-subtle)]">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <div className="text-left">
@@ -193,13 +182,44 @@ function App() {
                   {user.fullName}
                 </span>
                 <span className="text-[8px] text-[var(--text-secondary)] font-mono tracking-wide block leading-none">
-                  {user.role === 'teacher'
-                    ? `Faculty ${user.employeeId ? `#${user.employeeId}` : ''}`
-                    : `Roll #${user.rollNumber || '21CS045'}`
-                  }
+                  Faculty Educator
                 </span>
               </div>
+              <button
+                onClick={handleLogout}
+                className="ml-1 p-1 text-[var(--text-secondary)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                title="Log Out / Switch Account"
+              >
+                <LogOut size={13} />
+              </button>
             </div>
+          ) : roomRole === 'student' ? (
+            <div className="flex items-center gap-2 bg-[var(--glass-bg)] px-3 py-1 rounded-lg border border-sky-500/30">
+              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+              <div className="text-left">
+                <span className="text-[10px] font-semibold text-sky-300 block leading-tight">
+                  {studentDisplayName}
+                </span>
+                <span className="text-[8px] text-[var(--text-secondary)] font-mono tracking-wide block leading-none">
+                  Student (Guest View)
+                </span>
+              </div>
+              <button
+                onClick={() => setIsLoginModalOpen(true)}
+                className="ml-1 p-1 text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:bg-[var(--accent-primary-soft)] rounded-lg transition-colors cursor-pointer"
+                title="Switch User / Login as Teacher"
+              >
+                <UserCheck size={13} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsLoginModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--accent-primary)] text-[var(--text-inverse)] font-bold text-xs shadow-sm hover:scale-105 transition-all cursor-pointer"
+            >
+              <UserCheck size={14} />
+              <span>Log In / Join</span>
+            </button>
           )}
         </div>
       </header>
@@ -290,6 +310,7 @@ function App() {
       {/* Real-Time Classroom Modals */}
       <ShareClassModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} />
       <JoinClassModal isOpen={isJoinModalOpen} roomCode={roomCode || 'CLASSROOM'} onJoin={handleJoinClassSubmit} />
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
     </div>
   );
 }
