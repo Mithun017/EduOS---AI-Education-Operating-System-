@@ -117,7 +117,13 @@ const getInitialTheme = (): 'light' | 'dark' => {
 export const useEduOSStore = create<EduOSStore>()(
   persist(
     (set) => ({
-      user: null,
+      user: {
+        token: 'jwt-token-val-12345',
+        role: 'teacher',
+        fullName: 'Prof. Sarah Jenkins',
+        institutionId: 'demo-inst-001',
+        email: 'teacher@demo.eduos.ai'
+      },
       teachers: [],
       students: [],
       subjects: [],

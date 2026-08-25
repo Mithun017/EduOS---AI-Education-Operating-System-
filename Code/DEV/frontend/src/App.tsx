@@ -83,6 +83,15 @@ function App() {
       }
     } else if (pathname === '/teacher') {
       if (viewMode !== 'teacher') setViewMode('teacher');
+      if (!user) {
+        setUser({
+          token: 'jwt-token-val-12345',
+          role: 'teacher',
+          fullName: 'Prof. Sarah Jenkins',
+          institutionId: 'demo-inst-001',
+          email: 'teacher@demo.eduos.ai'
+        });
+      }
       if (roomRole !== 'teacher') setRoomSession({ roomId, roomRole: 'teacher' });
       if (!roomId) {
         handleOpenShareClass(false);
