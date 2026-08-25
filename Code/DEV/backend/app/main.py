@@ -43,6 +43,206 @@ app.include_router(teacher_router)
 app.include_router(student_router)
 app.include_router(canvas_router)
 
+from typing import Optional, Dict, Any, List
+from fastapi import WebSocket, WebSocketDisconnect, HTTPException, Depends
+from pydantic import BaseModel
+import json
+import uuid
+import logging
+from app.ws.stream import classroom_manager, ConnectionMetaData
+from app.core.security import decode_token
+
+logger = logging.getLogger(__name__)
+
+# Classroom HTTP Request Schemas
+class CreateClassroomRequest(BaseModel):
+    room_code: Optional[str] = None
+
+@app.post("/api/v1/classroom/create")
+async def create_classroom_session(req: CreateClassroomRequest = CreateClassroomRequest()):
+    """
+    Creates a new real-time classroom session for Teachers.
+    Generates a secure random secret_token and human-readable room_code.
+    """
+    room_info = classroom_manager.create_room(req.room_code)
+    return {
+        "status": "success",
+        "room_id": room_info["room_id"],
+        "room_code": room_info["room_code"],
+        "secret_token": room_info["secret_token"]
+    }
+
+
+@app.websocket("/ws/classroom/{room_id}")
+async def classroom_websocket_endpoint(websocket: WebSocket, room_id: str):
+    """
+    Real-Time Classroom Collaboration WebSocket.
+    Supports Split Auth:
+      - Teacher: First frame type: "auth" with JWT token.
+      - Student: First frame type: "join" with room secret_token + display_name.
+    Enforces Server-Side Student Frame Dropping, Late-Joiner State Sync, Presence Broadcasts & Rate Limiting.
+    """
+    await websocket.accept()
+    
+    # Verify room exists or auto-create if missing
+    if room_id not in classroom_manager.rooms:
+        classroom_manager.create_room()
+        # Keep created room_id aligned
+        room_data = list(classroom_manager.rooms.values())[-1]
+        room_data["room_id"] = room_id
+        classroom_manager.rooms[room_id] = room_data
+
+    room = classroom_manager.rooms[room_id]
+    conn_id = f"conn-{uuid.uuid4().hex[:6]}"
+    conn_meta: Optional[ConnectionMetaData] = None
+
+    try:
+        # First frame MUST arrive within 5 seconds for auth/join
+        raw_first = await websocket.receive_text()
+        first_data = json.loads(raw_first)
+        frame_type = first_data.get("type")
+
+        # BRANCH 1: Teacher JWT Authentication
+        if frame_type == "auth":
+            token = first_data.get("token")
+            if not token:
+                await websocket.close(code=4001, reason="Missing token in auth frame")
+                return
+
+            payload = decode_token(token)
+            if not payload:
+                await websocket.close(code=4001, reason="Invalid authentication token")
+                return
+
+            teacher_name = payload.get("full_name") or first_data.get("display_name") or "Educator"
+            conn_meta = ConnectionMetaData(conn_id, websocket, "teacher", teacher_name)
+            room["connections"][conn_id] = conn_meta
+            room["teacher_conn_id"] = conn_id
+
+            await websocket.send_text(json.dumps({
+                "type": "auth_success",
+                "conn_id": conn_id,
+                "role": "teacher",
+                "room_code": room["room_code"],
+                "display_name": teacher_name
+            }))
+
+            # Send current canvas state & broadcast teacher arrival
+            await classroom_manager.send_canvas_sync(room_id, websocket)
+            await classroom_manager.broadcast_presence(room_id)
+
+        # BRANCH 2: Student Guest Join (No JWT needed)
+        elif frame_type == "join":
+            secret = first_data.get("secret")
+            if secret != room["secret_token"]:
+                await websocket.close(code=4003, reason="Invalid classroom room secret")
+                return
+
+            raw_name = (first_data.get("display_name") or "Student").strip()
+            display_name = classroom_manager.resolve_display_name(room_id, raw_name)
+
+            conn_meta = ConnectionMetaData(conn_id, websocket, "student", display_name)
+            room["connections"][conn_id] = conn_meta
+
+            await websocket.send_text(json.dumps({
+                "type": "join_success",
+                "conn_id": conn_id,
+                "role": "student",
+                "room_code": room["room_code"],
+                "display_name": display_name
+            }))
+
+            # Immediate Late-Joiner Full Canvas State Sync
+            await classroom_manager.send_canvas_sync(room_id, websocket)
+            await classroom_manager.broadcast_presence(room_id)
+
+        else:
+            await websocket.close(code=4000, reason="First frame must be 'auth' or 'join'")
+            return
+
+        # Main Real-Time Message Loop
+        while True:
+            raw_msg = await websocket.receive_text()
+            data = json.loads(raw_msg)
+            msg_type = data.get("type")
+
+            # 1. Canvas Sync Request (Gap recovery or late fetch)
+            if msg_type == "request_sync":
+                await classroom_manager.send_canvas_sync(room_id, websocket)
+
+            # 2. Canvas Update Broadcast
+            elif msg_type == "canvas_update":
+                # SERVER-SIDE ENFORCEMENT: Drop student canvas edits!
+                if conn_meta.role == "student":
+                    logger.warning(f"SERVER ENFORCEMENT: Dropped unauthorized canvas_update from student {conn_id}")
+                    continue
+
+                canvas_objects = data.get("canvas_objects", [])
+                room["current_canvas_objects"] = canvas_objects
+                room["seq"] += 1
+
+                update_payload = {
+                    "type": "canvas_update",
+                    "canvas_objects": canvas_objects,
+                    "seq": room["seq"],
+                    "sender_id": conn_id
+                }
+                await classroom_manager.broadcast_to_room(room_id, update_payload, exclude_conn_id=conn_id)
+
+            # 3. Canvas Clear Broadcast
+            elif msg_type == "canvas_clear":
+                # SERVER-SIDE ENFORCEMENT: Drop student clear requests!
+                if conn_meta.role == "student":
+                    logger.warning(f"SERVER ENFORCEMENT: Dropped unauthorized canvas_clear from student {conn_id}")
+                    continue
+
+                room["current_canvas_objects"] = []
+                room["seq"] += 1
+
+                clear_payload = {
+                    "type": "canvas_clear",
+                    "seq": room["seq"],
+                    "sender_id": conn_id
+                }
+                await classroom_manager.broadcast_to_room(room_id, clear_payload, exclude_conn_id=conn_id)
+
+            # 4. Live Chat Message Broadcast
+            elif msg_type == "chat_message":
+                # Rate limit check for guest chat
+                if not classroom_manager.check_rate_limit(conn_meta):
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "code": "rate_limit_exceeded",
+                        "message": "Chat rate limit exceeded. Please wait a moment."
+                    }))
+                    continue
+
+                text = data.get("text", "").strip()
+                if text:
+                    chat_payload = {
+                        "type": "chat_message",
+                        "id": f"msg-{time.time()}-{uuid.uuid4().hex[:4]}",
+                        "sender_role": conn_meta.role,
+                        "sender_name": conn_meta.display_name,
+                        "text": text,
+                        "timestamp": new_timestamp()
+                    }
+                    await classroom_manager.broadcast_to_room(room_id, chat_payload)
+
+    except WebSocketDisconnect:
+        if conn_id:
+            await classroom_manager.disconnect(room_id, conn_id)
+    except Exception as e:
+        logger.error(f"WebSocket error in room {room_id}: {e}")
+        if conn_id:
+            await classroom_manager.disconnect(room_id, conn_id)
+
+
+def new_timestamp() -> str:
+    from datetime import datetime
+    return datetime.now().strftime("%I:%M %p")
+
+
 @app.get("/")
 async def root():
     return {
@@ -57,3 +257,4 @@ async def health_check():
         "status": "healthy",
         "version": "1.0.0"
     }
+

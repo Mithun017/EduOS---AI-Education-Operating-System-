@@ -32,6 +32,19 @@ export interface SavedCanvasSession {
   objectCount: number;
 }
 
+export interface RoomStudent {
+  conn_id: string;
+  display_name: string;
+}
+
+export interface RoomChatMessage {
+  id: string;
+  sender_role: string;
+  sender_name: string;
+  text: string;
+  timestamp: string;
+}
+
 interface EduOSStore {
   user: UserSession | null;
   teachers: TeacherProfile[];
@@ -46,6 +59,19 @@ interface EduOSStore {
   savedCanvasHistory: SavedCanvasSession[];
   activeCanvasSessionToLoad: SavedCanvasSession | null;
 
+  // Real-Time Classroom Room State
+  roomId: string | null;
+  roomCode: string | null;
+  roomSecret: string | null;
+  roomRole: 'teacher' | 'student';
+  studentDisplayName: string;
+  connectedStudents: RoomStudent[];
+  isTeacherConnected: boolean;
+  isLiveConnected: boolean;
+  lastSeq: number;
+  roomChatMessages: RoomChatMessage[];
+  roomWsSend: ((msg: any) => void) | null;
+
   setUser: (user: UserSession | null) => void;
   setSubjects: (subjects: AcademicSubject[]) => void;
   setSelectedSubject: (subject: AcademicSubject | null) => void;
@@ -58,6 +84,14 @@ interface EduOSStore {
   saveCanvasToHistory: (objects: any[], title?: string) => void;
   deleteCanvasFromHistory: (id: string) => void;
   loadCanvasSession: (session: SavedCanvasSession | null) => void;
+
+  setRoomSession: (info: { roomId: string | null; roomCode?: string | null; roomSecret?: string | null; roomRole?: 'teacher' | 'student'; studentDisplayName?: string }) => void;
+  setConnectedStudents: (students: RoomStudent[], isTeacherConnected: boolean) => void;
+  setIsTeacherConnected: (connected: boolean) => void;
+  setIsLiveConnected: (connected: boolean) => void;
+  setLastSeq: (seq: number) => void;
+  addRoomChatMessage: (msg: RoomChatMessage) => void;
+  setRoomWsSend: (fn: ((msg: any) => void) | null) => void;
 
   // Dynamic Management Actions
   addTeacher: (name: string, employeeId: string) => void;
@@ -96,6 +130,19 @@ export const useEduOSStore = create<EduOSStore>()(
       savedCanvasHistory: [],
       activeCanvasSessionToLoad: null,
 
+      // Real-Time Classroom Room Initial State
+      roomId: null,
+      roomCode: null,
+      roomSecret: null,
+      roomRole: 'teacher',
+      studentDisplayName: 'Student',
+      connectedStudents: [],
+      isTeacherConnected: true,
+      isLiveConnected: false,
+      lastSeq: 0,
+      roomChatMessages: [],
+      roomWsSend: null,
+
       setUser: (user) => set({ user }),
       saveCanvasToHistory: (objects: any[], title?: string) => {
         if (!objects || objects.length === 0) return;
@@ -114,6 +161,25 @@ export const useEduOSStore = create<EduOSStore>()(
         savedCanvasHistory: state.savedCanvasHistory.filter(s => s.id !== id)
       })),
       loadCanvasSession: (session: SavedCanvasSession | null) => set({ activeCanvasSessionToLoad: session }),
+
+      setRoomSession: (info) => set({
+        roomId: info.roomId,
+        roomCode: info.roomCode || null,
+        roomSecret: info.roomSecret || null,
+        roomRole: info.roomRole || 'teacher',
+        studentDisplayName: info.studentDisplayName || 'Student'
+      }),
+      setConnectedStudents: (students, isTeacherConnected) => set({
+        connectedStudents: students,
+        isTeacherConnected
+      }),
+      setIsTeacherConnected: (connected) => set({ isTeacherConnected: connected }),
+      setIsLiveConnected: (connected) => set({ isLiveConnected: connected }),
+      setLastSeq: (seq) => set({ lastSeq: seq }),
+      addRoomChatMessage: (msg) => set((state) => ({
+        roomChatMessages: [...state.roomChatMessages, msg]
+      })),
+      setRoomWsSend: (fn: ((msg: any) => void) | null) => set({ roomWsSend: fn }),
   setSubjects: (subjects) => {
     set({ subjects });
     if (subjects.length > 0) {

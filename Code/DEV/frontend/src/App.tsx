@@ -4,6 +4,8 @@ import { loginUser } from './lib/api';
 import { TeacherAssistant } from './features/teacher-assistant/TeacherAssistant';
 import { StudentAssistant } from './features/student-assistant/StudentAssistant';
 import { FloatingChatWidget } from './features/chat/FloatingChatWidget';
+import { ShareClassModal } from './features/canvas/ShareClassModal';
+import { JoinClassModal } from './features/canvas/JoinClassModal';
 import {
   Sun,
   Moon,
@@ -12,7 +14,8 @@ import {
   PlusCircle,
   Trash2,
   History,
-  FolderOpen
+  FolderOpen,
+  Share2
 } from 'lucide-react';
 
 function App() {
@@ -20,14 +23,36 @@ function App() {
     user,
     setUser,
     viewMode,
+    setViewMode,
     theme,
     toggleTheme,
     savedCanvasHistory,
     deleteCanvasFromHistory,
-    loadCanvasSession
+    loadCanvasSession,
+    roomId,
+    roomCode,
+    roomSecret,
+    setRoomSession
   } = useEduOSStore();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+  const [pendingJoinRoomId, setPendingJoinRoomId] = useState<string | null>(null);
+  const [pendingJoinRoomSecret, setPendingJoinRoomSecret] = useState<string | null>(null);
+
+  // Parse URL query params for ?room=... &secret=... on load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const roomParam = params.get('room');
+    const secretParam = params.get('secret');
+
+    if (roomParam && secretParam) {
+      setPendingJoinRoomId(roomParam);
+      setPendingJoinRoomSecret(secretParam);
+      setIsJoinModalOpen(true);
+    }
+  }, []);
 
   // Theme attribute handler
   useEffect(() => {
@@ -59,6 +84,57 @@ function App() {
     }
   }, []);
 
+  const handleOpenShareClass = async () => {
+    if (roomId && roomSecret) {
+      setIsShareModalOpen(true);
+      return;
+    }
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/api/v1/classroom/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.status === 'success') {
+        setRoomSession({
+          roomId: data.room_id,
+          roomCode: data.room_code,
+          roomSecret: data.secret_token,
+          roomRole: 'teacher'
+        });
+        setIsShareModalOpen(true);
+      }
+    } catch (e) {
+      console.warn("Classroom HTTP create failed, using client room generation", e);
+      const fallbackRoomId = `room-${Math.random().toString(36).substring(2, 8)}`;
+      const fallbackSecret = `sec-${Math.random().toString(36).substring(2, 12)}`;
+      const fallbackCode = `ROOM-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      setRoomSession({
+        roomId: fallbackRoomId,
+        roomCode: fallbackCode,
+        roomSecret: fallbackSecret,
+        roomRole: 'teacher'
+      });
+      setIsShareModalOpen(true);
+    }
+  };
+
+  const handleJoinClassSubmit = (displayName: string) => {
+    if (!pendingJoinRoomId || !pendingJoinRoomSecret) return;
+
+    setRoomSession({
+      roomId: pendingJoinRoomId,
+      roomCode: 'CLASSROOM',
+      roomSecret: pendingJoinRoomSecret,
+      roomRole: 'student',
+      studentDisplayName: displayName
+    });
+    setViewMode('student');
+    setIsJoinModalOpen(false);
+  };
+
   return (
     <div className="flex flex-col h-screen max-h-screen w-screen max-w-[100vw] overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)] transition-colors duration-300">
       {/* Top Header Bar */}
@@ -87,6 +163,18 @@ function App() {
 
         {/* Global Controls & Active Profile */}
         <div className="flex items-center gap-2.5">
+          {/* Share Class Button for Teachers */}
+          {user?.role === 'teacher' && (
+            <button
+              onClick={handleOpenShareClass}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-[var(--text-inverse)] transition-all cursor-pointer font-bold text-xs shadow-sm hover:scale-105"
+              title="Share Live Classroom Session with Students"
+            >
+              <Share2 size={14} />
+              <span>Share Class</span>
+            </button>
+          )}
+
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}
@@ -143,44 +231,32 @@ function App() {
               </button>
             </div>
 
-            {/* Saved Canvas History List */}
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin">
+            {/* Session History List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
               {savedCanvasHistory.length > 0 ? (
-                savedCanvasHistory.map((item) => (
+                savedCanvasHistory.map((sess) => (
                   <div
-                    key={item.id}
-                    className="p-2.5 bg-[var(--card-bg)] hover:bg-[var(--accent-primary-soft)]/20 border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-xl transition-all space-y-1.5 group shadow-sm"
+                    key={sess.id}
+                    className="p-3 bg-[var(--glass-bg)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-xl transition-all flex items-center justify-between gap-2 group"
                   >
-                    <div className="flex items-center justify-between">
-                      <h5 className="text-xs font-bold text-[var(--text-primary)] truncate max-w-[170px]" title={item.title}>
-                        {item.title}
-                      </h5>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] font-semibold">
-                        {item.objectCount} {item.objectCount === 1 ? 'item' : 'items'}
-                      </span>
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-bold text-xs text-[var(--text-primary)] truncate">{sess.title}</h5>
+                      <span className="text-[9px] text-[var(--text-secondary)] block mt-0.5">{sess.timestamp} • {sess.objectCount} items</span>
                     </div>
 
-                    <p className="text-[10px] text-[var(--text-secondary)] font-mono">
-                      {item.timestamp}
-                    </p>
-
-                    <div className="flex items-center gap-2 pt-1 border-t border-[var(--border-subtle)]/50">
+                    <div className="flex items-center gap-1">
                       <button
-                        onClick={() => loadCanvasSession(item)}
-                        className="flex-1 flex items-center justify-center gap-1 py-1 bg-[var(--accent-primary)] text-[var(--text-inverse)] rounded-lg text-[10px] font-bold shadow hover:scale-102 transition-transform cursor-pointer"
-                        title="Load this saved whiteboard session"
+                        onClick={() => loadCanvasSession(sess)}
+                        className="p-1.5 bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-[var(--text-inverse)] rounded-lg transition-all cursor-pointer"
+                        title="Open Canvas Session"
                       >
-                        <FolderOpen size={12} />
-                        <span>Open Canvas</span>
+                        <FolderOpen size={13} />
                       </button>
+
                       <button
-                        onClick={() => {
-                          if (confirm(`Delete saved canvas history '${item.title}'?`)) {
-                            deleteCanvasFromHistory(item.id);
-                          }
-                        }}
-                        className="p-1 rounded-lg text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-colors cursor-pointer"
-                        title="Delete from history"
+                        onClick={() => deleteCanvasFromHistory(sess.id)}
+                        className="p-1.5 text-[var(--text-secondary)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all cursor-pointer"
+                        title="Delete Session"
                       >
                         <Trash2 size={13} />
                       </button>
@@ -188,9 +264,9 @@ function App() {
                   </div>
                 ))
               ) : (
-                <div className="p-4 text-center space-y-2 border border-dashed border-[var(--border-subtle)] rounded-xl my-4">
-                  <div className="w-8 h-8 rounded-full bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] flex items-center justify-center mx-auto">
-                    <History size={16} />
+                <div className="p-6 text-center border border-dashed border-[var(--border-subtle)] rounded-xl space-y-2 my-auto">
+                  <div className="w-10 h-10 rounded-full bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] flex items-center justify-center mx-auto">
+                    <History size={18} />
                   </div>
                   <h6 className="text-xs font-bold text-[var(--text-primary)]">No Saved Sessions</h6>
                   <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed">
@@ -210,6 +286,10 @@ function App() {
 
       {/* Floating Bottom-Right Chat Access & Interface */}
       <FloatingChatWidget />
+
+      {/* Real-Time Classroom Modals */}
+      <ShareClassModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} />
+      <JoinClassModal isOpen={isJoinModalOpen} roomCode={roomCode || 'CLASSROOM'} onJoin={handleJoinClassSubmit} />
     </div>
   );
 }

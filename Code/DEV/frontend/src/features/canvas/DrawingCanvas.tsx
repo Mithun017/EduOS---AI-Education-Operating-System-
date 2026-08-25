@@ -29,8 +29,26 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     saveCanvasToHistory,
     savedCanvasHistory,
     activeCanvasSessionToLoad,
-    loadCanvasSession
+    loadCanvasSession,
+    // Real-Time Classroom Room State
+    roomId,
+    roomSecret,
+    roomRole,
+    studentDisplayName,
+    isTeacherConnected,
+    isLiveConnected,
+    lastSeq,
+    setConnectedStudents,
+    setIsTeacherConnected,
+    setIsLiveConnected,
+    setLastSeq,
+    addRoomChatMessage,
+    setRoomWsSend
   } = useEduOSStore();
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectAttemptsRef = useRef(0);
+  const reconnectTimerRef = useRef<any>(null);
   const canvasRef = useRef<SVGSVGElement>(null);
   const [saveNotification, setSaveNotification] = useState(false);
 
@@ -120,6 +138,130 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     initSession();
   }, [user, selectedTopic, conversationId]);
 
+  // Real-Time Classroom WebSocket Collaboration Lifecycle
+  useEffect(() => {
+    if (!roomId) {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setIsLiveConnected(false);
+      return;
+    }
+
+    const connectWebSocket = () => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host || '127.0.0.1:8000';
+      const wsUrl = `${protocol}//${host}/ws/classroom/${roomId}`;
+
+      console.log(`Connecting to Classroom WebSocket: ${wsUrl}`);
+      const ws = new WebSocket(wsUrl);
+      wsRef.current = ws;
+
+      setRoomWsSend((msg: any) => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify(msg));
+        }
+      });
+
+      ws.onopen = () => {
+        console.log("Classroom WebSocket Open. Sending Auth/Join frame...");
+        reconnectAttemptsRef.current = 0;
+
+        if (roomRole === 'teacher') {
+          ws.send(JSON.stringify({
+            type: 'auth',
+            token: user?.token || '',
+            display_name: user?.fullName || 'Educator'
+          }));
+        } else {
+          ws.send(JSON.stringify({
+            type: 'join',
+            secret: roomSecret,
+            display_name: studentDisplayName || 'Student'
+          }));
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const msgType = data.type;
+
+          if (msgType === 'auth_success' || msgType === 'join_success') {
+            setIsLiveConnected(true);
+            setIsTeacherConnected(true);
+          } else if (msgType === 'canvas_sync') {
+            if (Array.isArray(data.canvas_objects)) {
+              setObjects(data.canvas_objects);
+              setHistory([data.canvas_objects]);
+              setHistoryIndex(0);
+              setLastSeq(data.seq || 0);
+            }
+          } else if (msgType === 'canvas_update') {
+            // Sequence Gap Detection: If gap detected, request fresh full sync
+            if (data.seq && lastSeq > 0 && data.seq > lastSeq + 1) {
+              console.warn(`Sequence gap detected (expected ${lastSeq + 1}, got ${data.seq}). Requesting full canvas sync.`);
+              ws.send(JSON.stringify({ type: 'request_sync' }));
+            } else {
+              if (Array.isArray(data.canvas_objects)) {
+                setObjects(data.canvas_objects);
+                if (data.seq) setLastSeq(data.seq);
+              }
+            }
+          } else if (msgType === 'canvas_clear') {
+            setObjects([]);
+            if (data.seq) setLastSeq(data.seq);
+          } else if (msgType === 'presence_update') {
+            setConnectedStudents(data.connected_students || [], data.teacher_connected ?? true);
+          } else if (msgType === 'teacher_disconnected') {
+            setIsTeacherConnected(false);
+          } else if (msgType === 'chat_message') {
+            addRoomChatMessage({
+              id: data.id || `msg-${Date.now()}`,
+              sender_role: data.sender_role,
+              sender_name: data.sender_name,
+              text: data.text,
+              timestamp: data.timestamp
+            });
+          }
+        } catch (e) {
+          console.error("Error parsing WebSocket frame", e);
+        }
+      };
+
+      ws.onclose = () => {
+        console.warn("Classroom WebSocket closed.");
+        setIsLiveConnected(false);
+        setRoomWsSend(null);
+
+        // Auto-reconnect with exponential backoff (max 5 attempts)
+        if (reconnectAttemptsRef.current < 5) {
+          const timeout = Math.pow(2, reconnectAttemptsRef.current) * 1000;
+          reconnectAttemptsRef.current += 1;
+          console.log(`Reconnecting in ${timeout}ms (Attempt ${reconnectAttemptsRef.current})...`);
+          reconnectTimerRef.current = setTimeout(connectWebSocket, timeout);
+        }
+      };
+
+      ws.onerror = (err) => {
+        console.error("WebSocket error:", err);
+      };
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setIsLiveConnected(false);
+      setRoomWsSend(null);
+    };
+  }, [roomId, roomSecret, roomRole, studentDisplayName, user]);
+
   // 2. Auto-save objects to backend & LocalStorage on changes
   const triggerAutoSave = (updatedObjects: CanvasObject[]) => {
     const activeTopicId = selectedTopic?.id || 'dynamic-ai-scope';
@@ -147,31 +289,62 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     setHistoryIndex(updatedHistory.length);
     setObjects(newObjects);
     triggerAutoSave(newObjects);
+
+    // Broadcast WebSocket update to room if Teacher in live room
+    if (roomRole === 'teacher' && isLiveConnected && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'canvas_update',
+        canvas_objects: newObjects
+      }));
+    }
   };
 
   // Undo/Redo handlers
   const handleUndo = () => {
+    if (roomRole === 'student') return;
     if (historyIndex > 0) {
       const prevIndex = historyIndex - 1;
       setHistoryIndex(prevIndex);
       setObjects(history[prevIndex]);
       triggerAutoSave(history[prevIndex]);
+
+      if (roomRole === 'teacher' && isLiveConnected && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'canvas_update',
+          canvas_objects: history[prevIndex]
+        }));
+      }
     }
   };
 
   const handleRedo = () => {
+    if (roomRole === 'student') return;
     if (historyIndex < history.length - 1) {
       const nextIndex = historyIndex + 1;
       setHistoryIndex(nextIndex);
       setObjects(history[nextIndex]);
       triggerAutoSave(history[nextIndex]);
+
+      if (roomRole === 'teacher' && isLiveConnected && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'canvas_update',
+          canvas_objects: history[nextIndex]
+        }));
+      }
     }
   };
 
   const handleClear = () => {
+    if (roomRole === 'student') return;
     if (objects.length > 0) {
       pushToHistory([]);
       setSelectedObjectIds(new Set());
+
+      if (roomRole === 'teacher' && isLiveConnected && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          type: 'canvas_clear'
+        }));
+      }
     }
   };
 
@@ -284,6 +457,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
   // Pointer event handlers
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    // STUDENT READ-ONLY UX GUARD
+    if (roomRole === 'student') return;
+
     e.preventDefault();
     canvasRef.current?.setPointerCapture(e.pointerId);
 
@@ -718,6 +894,21 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
   return (
     <div className="relative flex flex-col h-full bg-[var(--glass-bg)] backdrop-blur-md rounded-2xl border border-[var(--border-subtle)] overflow-hidden shadow-2xl">
+      {/* Student Read-Only Live Badge */}
+      {roomRole === 'student' && isLiveConnected && (
+        <div className="absolute top-4 left-4 z-40 px-3 py-1.5 bg-sky-500/20 backdrop-blur-md text-sky-300 font-bold text-xs rounded-xl border border-sky-500/30 flex items-center gap-2 shadow-lg select-none">
+          <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
+          <span>🔒 Read-Only Student View (Live)</span>
+        </div>
+      )}
+
+      {/* Teacher Disconnected Alert Banner */}
+      {roomId && !isTeacherConnected && (
+        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 bg-amber-500/90 text-slate-950 font-bold text-xs rounded-xl shadow-2xl border border-amber-400 flex items-center gap-2 animate-pulse select-none">
+          <span>⚠️ Teacher disconnected or reconnecting... Canvas updates paused.</span>
+        </div>
+      )}
+
       {/* Save Notification Toast */}
       {saveNotification && (
         <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-50 px-4 py-2 bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-xl border border-emerald-400/50 flex items-center gap-2 animate-bounce">
@@ -725,33 +916,35 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         </div>
       )}
 
-      {/* Top Floating Toolbar */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 max-w-[95%] flex justify-center pointer-events-none">
-        <div className="pointer-events-auto">
-          <ShapeToolbar
-          activeTool={activeTool}
-          setActiveTool={setActiveTool}
-          canvasMode={canvasMode}
-          setCanvasMode={setCanvasMode}
-          strokeColor={strokeColor}
-          setStrokeColor={setStrokeColor}
-          strokeWidth={strokeWidth}
-          setStrokeWidth={setStrokeWidth}
-          snapToGrid={snapToGrid}
-          setSnapToGrid={setSnapToGrid}
-          canUndo={historyIndex > 0}
-          canRedo={historyIndex < history.length - 1}
-          onUndo={handleUndo}
-          onRedo={handleRedo}
-          onClear={handleClear}
-          onRecognize={handleRecognizeFormula}
-          onWebSearch={handleWebSearch}
-          onVisualize={handleVisualize}
-          onSaveCanvas={handleSaveCanvas}
-          hasSelection={selectedObjectIds.size > 0}
-        />
+      {/* Top Floating Toolbar (Hidden or Read-Only for Students) */}
+      {roomRole !== 'student' && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 max-w-[95%] flex justify-center pointer-events-none">
+          <div className="pointer-events-auto">
+            <ShapeToolbar
+            activeTool={activeTool}
+            setActiveTool={setActiveTool}
+            canvasMode={canvasMode}
+            setCanvasMode={setCanvasMode}
+            strokeColor={strokeColor}
+            setStrokeColor={setStrokeColor}
+            strokeWidth={strokeWidth}
+            setStrokeWidth={setStrokeWidth}
+            snapToGrid={snapToGrid}
+            setSnapToGrid={setSnapToGrid}
+            canUndo={historyIndex > 0}
+            canRedo={historyIndex < history.length - 1}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            onClear={handleClear}
+            onRecognize={handleRecognizeFormula}
+            onWebSearch={handleWebSearch}
+            onVisualize={handleVisualize}
+            onSaveCanvas={handleSaveCanvas}
+            hasSelection={selectedObjectIds.size > 0}
+          />
+          </div>
         </div>
-      </div>
+      )}
 
       {isRecognizing && (
         <div className="absolute inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50">
