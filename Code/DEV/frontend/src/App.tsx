@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useLocation, useNavigate, Routes, Route, Navigate } from 'react-router-dom';
 import { useEduOSStore } from './store/store';
 import { TeacherAssistant } from './features/teacher-assistant/TeacherAssistant';
 import { StudentAssistant } from './features/student-assistant/StudentAssistant';
@@ -21,6 +22,9 @@ import {
 } from 'lucide-react';
 
 function App() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   const {
     user,
     setUser,
@@ -46,42 +50,43 @@ function App() {
   const [pendingJoinRoomId, setPendingJoinRoomId] = useState<string | null>(null);
   const [pendingJoinRoomSecret, setPendingJoinRoomSecret] = useState<string | null>(null);
 
-  // Parse URL query params for ?room=... &secret=... on load
+  // Sync route path with viewMode and handle query parameters
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const pathname = location.pathname;
+    const params = new URLSearchParams(location.search);
     const roomParam = params.get('room');
     const secretParam = params.get('secret');
 
-    if (roomParam && secretParam) {
-      // Cleanly clear any persisted teacher session & force student role
-      setUser(null);
-      setViewMode('student');
+    if (pathname === '/student' || pathname === '/join' || roomParam) {
+      if (viewMode !== 'student') setViewMode('student');
 
-      // Check synchronous localStorage for saved student name for active session
-      const savedName = localStorage.getItem('eduos_student_name');
-      const activeName = (savedName && savedName.trim()) || (studentDisplayName && studentDisplayName.trim() !== 'Student' ? studentDisplayName : '');
+      if (roomParam && secretParam) {
+        setUser(null);
+        const savedName = localStorage.getItem('eduos_student_name');
+        const activeName = (savedName && savedName.trim()) || (studentDisplayName && studentDisplayName.trim() !== 'Student' ? studentDisplayName : '');
 
-      setRoomSession({
-        roomId: roomParam,
-        roomCode: 'CLASSROOM',
-        roomSecret: secretParam,
-        roomRole: 'student',
-        studentDisplayName: activeName || 'Student'
-      });
-      setPendingJoinRoomId(roomParam);
-      setPendingJoinRoomSecret(secretParam);
+        setRoomSession({
+          roomId: roomParam,
+          roomCode: 'CLASSROOM',
+          roomSecret: secretParam,
+          roomRole: 'student',
+          studentDisplayName: activeName || 'Student'
+        });
+        setPendingJoinRoomId(roomParam);
+        setPendingJoinRoomSecret(secretParam);
 
-      // Only open modal if student has never set their name for this session!
-      if (activeName && activeName !== 'Student') {
-        setIsJoinModalOpen(false);
-      } else {
-        setIsJoinModalOpen(true);
+        if (activeName && activeName !== 'Student') {
+          setIsJoinModalOpen(false);
+        } else {
+          setIsJoinModalOpen(true);
+        }
       }
-    } else if (!user && !roomId) {
-      // If no room parameter and not logged in, prompt LoginModal
+    } else if (pathname === '/teacher') {
+      if (viewMode !== 'teacher') setViewMode('teacher');
+    } else if (pathname === '/login') {
       setIsLoginModalOpen(true);
     }
-  }, []);
+  }, [location.pathname, location.search]);
 
   // Theme attribute handler
   useEffect(() => {
@@ -93,6 +98,7 @@ function App() {
     localStorage.removeItem('eduos_student_name');
     setRoomSession({ roomId: null });
     setIsLoginModalOpen(true);
+    navigate('/login');
   };
 
   const handleOpenShareClass = async () => {
@@ -146,6 +152,7 @@ function App() {
     });
     setViewMode('student');
     setIsJoinModalOpen(false);
+    navigate(`/student?room=${pendingJoinRoomId}&secret=${pendingJoinRoomSecret}`);
   };
 
   return (
@@ -322,9 +329,15 @@ function App() {
           </div>
         </div>
 
-        {/* Feature Workspace */}
+        {/* Feature Workspace with React Router Paths */}
         <div className="flex-1 h-full min-h-0 transition-all duration-300 overflow-hidden">
-          {viewMode === 'teacher' ? <TeacherAssistant /> : <StudentAssistant />}
+          <Routes>
+            <Route path="/teacher" element={<TeacherAssistant />} />
+            <Route path="/student" element={<StudentAssistant />} />
+            <Route path="/join" element={<StudentAssistant />} />
+            <Route path="/login" element={viewMode === 'teacher' ? <TeacherAssistant /> : <StudentAssistant />} />
+            <Route path="*" element={<Navigate to={viewMode === 'student' ? '/student' : '/teacher'} replace />} />
+          </Routes>
         </div>
       </main>
 

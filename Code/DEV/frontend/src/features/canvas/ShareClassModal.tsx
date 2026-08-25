@@ -13,7 +13,7 @@ export const ShareClassModal: React.FC<ShareClassModalProps> = ({ isOpen, onClos
 
   if (!isOpen || !roomId || !roomSecret) return null;
 
-  const shareUrl = `${window.location.origin}/?room=${roomId}&secret=${roomSecret}`;
+  const shareUrl = `${window.location.origin}/student?room=${roomId}&secret=${roomSecret}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareUrl);
