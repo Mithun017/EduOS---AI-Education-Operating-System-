@@ -747,5 +747,3 @@ gantt
 <p align="center">
   <sub>Built with 🧠 by <strong>Mithun</strong> — EduOS © 2026</sub>
 </p>
-
-
