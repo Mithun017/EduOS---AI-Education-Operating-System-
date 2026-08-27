@@ -184,11 +184,15 @@ async def classroom_websocket_endpoint(websocket: WebSocket, room_id: str):
                 session_title = data.get("title", "Classroom Session")
                 canvas_objects = data.get("canvas_objects", room["current_canvas_objects"])
                 room["current_canvas_objects"] = canvas_objects
-                await classroom_manager.broadcast_to_room(room_id, {
-                    "type": "session_completed",
-                    "title": session_title,
-                    "canvas_objects": canvas_objects
-                })
+                await classroom_manager.broadcast_to_room(
+                    room_id,
+                    {
+                        "type": "session_completed",
+                        "title": session_title,
+                        "canvas_objects": canvas_objects
+                    },
+                    exclude_conn_id=conn_id
+                )
 
             # 2. Canvas Update Broadcast
             elif msg_type == "canvas_update":

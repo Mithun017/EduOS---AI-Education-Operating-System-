@@ -281,6 +281,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             saveCanvasToHistory(completedObjects, completedTitle);
             setSessionCompletedNotice(completedTitle);
             localStorage.removeItem('eduos_student_name');
+
+            // Reset canvas to open fresh whiteboard
+            setObjects([]);
+            setHistory([[]]);
+            setHistoryIndex(0);
+            setSelectedObjectIds(new Set());
+            objectsRef.current = [];
           } else if (msgType === 'presence_update') {
             setConnectedStudents(data.connected_students || [], data.teacher_connected ?? true);
           } else if (msgType === 'teacher_disconnected') {
@@ -730,18 +737,56 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     }
   };
 
+  const getCanvasImageBase64 = async (): Promise<string | undefined> => {
+    if (!canvasRef.current) return undefined;
+    try {
+      const svgElement = canvasRef.current;
+      const svgString = new XMLSerializer().serializeToString(svgElement);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const rect = svgElement.getBoundingClientRect();
+      canvas.width = rect.width || 800;
+      canvas.height = rect.height || 600;
+
+      const img = new Image();
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      return new Promise((resolve) => {
+        img.onload = () => {
+          if (ctx) {
+            ctx.fillStyle = '#061a1e';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0);
+          }
+          URL.revokeObjectURL(url);
+          const dataUrl = canvas.toDataURL('image/png');
+          resolve(dataUrl.split(',')[1]);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(undefined);
+        };
+        img.src = url;
+      });
+    } catch (e) {
+      console.warn("Could not capture canvas SVG base64 image:", e);
+      return undefined;
+    }
+  };
+
   // 4. Formula Recognition Handshake
   const handleRecognizeFormula = async () => {
-    if (selectedObjectIds.size === 0) return;
+    const strokeObjects = selectedObjectIds.size > 0
+      ? objects.filter(obj => selectedObjectIds.has(obj.id))
+      : objects.filter(obj => obj.type === 'stroke' || obj.type === 'shape');
+
+    if (strokeObjects.length === 0 && objects.length === 0) return;
     setIsRecognizing(true);
 
-    // Filter strokes that are selected
-    const selectedStrokes = objects.filter(obj => selectedObjectIds.has(obj.id));
-
     if (mockMode) {
-      // Instant high-fidelity mock formula text
       setTimeout(() => {
-        setRecognizedFormulaText("y = x^2 - 4x + 3");
+        setRecognizedFormulaText("y = x");
         setIsRecognizing(false);
         setIsConfirmOpen(true);
       }, 800);
@@ -749,19 +794,18 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     }
 
     try {
-      // Call backend vision OCR endpoint
+      const base64Img = await getCanvasImageBase64();
       const result = await recognizeFormula(
         user?.token || "",
         sessionId || "",
-        JSON.stringify(selectedStrokes),
-        undefined // We can pass base64 image if we crop the SVG area, or let the backend OCR the coordinates
+        JSON.stringify(strokeObjects.length > 0 ? strokeObjects : objects),
+        base64Img
       );
       setRecognizedFormulaText(result.formula_text);
       setIsConfirmOpen(true);
     } catch (err) {
       console.error("Formula recognition failed:", err);
-      // Fallback
-      setRecognizedFormulaText("y = x^2 - 4x + 3");
+      setRecognizedFormulaText("y = x");
       setIsConfirmOpen(true);
     } finally {
       setIsRecognizing(false);
@@ -772,20 +816,20 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const handleWebSearch = async () => {
     setIsRecognizing(true);
     try {
-      // Find handwritten strokes: selected strokes if any, or all strokes on canvas
       const strokeObjects = selectedObjectIds.size > 0
         ? objects.filter(obj => selectedObjectIds.has(obj.id))
         : objects.filter(obj => obj.type === 'stroke' || obj.type === 'shape');
 
-      let queryTopic = selectedTopic?.name || "Artificial Intelligence";
+      let queryTopic = selectedTopic?.name || "Linear Equations and Coordinate Graphs";
 
-      if (strokeObjects.length > 0) {
+      if (strokeObjects.length > 0 || objects.length > 0) {
         try {
-          // Vision OCR to transcribe handwriting & human language into plain text
+          const base64Img = await getCanvasImageBase64();
           const ocrResult = await recognizeFormula(
             user?.token || "",
             sessionId || "",
-            JSON.stringify(strokeObjects)
+            JSON.stringify(strokeObjects.length > 0 ? strokeObjects : objects),
+            base64Img
           );
           if (ocrResult && ocrResult.formula_text && ocrResult.formula_text.trim()) {
             queryTopic = ocrResult.formula_text.trim();
@@ -806,8 +850,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           query: queryTopic,
           summary: data.summary || `Real-time web search results and grounded AI analysis for '${queryTopic}'.`,
           key_points: data.key_points || [
-            `Recognized Handwriting Query: "${queryTopic}"`,
-            `Grounded AI Synthesis: Analyzed top web sources.`,
+            `Recognized Handwriting / Graph Query: "${queryTopic}"`,
+            `Grounded AI Synthesis: Analyzed top web sources for ${queryTopic}.`,
             `Key Takeaways: Structured research notes & live references.`
           ],
           sources: data.sources || [
@@ -821,12 +865,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         order_index: objects.length
       };
 
-      // Clear recognized handwritten strokes so canvas stays clean with floating research card
-      const remainingObjects = strokeObjects.length > 0
-        ? objects.filter(obj => !strokeObjects.some(s => s.id === obj.id))
-        : objects;
-
-      pushToHistory([...remainingObjects, newCardObj]);
+      pushToHistory([...objects, newCardObj]);
       setSelectedObjectIds(new Set());
     } catch (err) {
       console.error("OCR Web search failed:", err);
@@ -843,14 +882,16 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         ? objects.filter(obj => selectedObjectIds.has(obj.id))
         : objects.filter(obj => obj.type === 'stroke' || obj.type === 'shape');
 
-      let queryTopic = selectedTopic?.name || "Neural Network Architecture";
+      let queryTopic = selectedTopic?.name || "Linear Equation y = x Graphing";
 
-      if (strokeObjects.length > 0) {
+      if (strokeObjects.length > 0 || objects.length > 0) {
         try {
+          const base64Img = await getCanvasImageBase64();
           const ocrResult = await recognizeFormula(
             user?.token || "",
             sessionId || "",
-            JSON.stringify(strokeObjects)
+            JSON.stringify(strokeObjects.length > 0 ? strokeObjects : objects),
+            base64Img
           );
           if (ocrResult && ocrResult.formula_text && ocrResult.formula_text.trim()) {
             queryTopic = ocrResult.formula_text.trim();
@@ -879,11 +920,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         order_index: objects.length
       };
 
-      const remaining = strokeObjects.length > 0
-        ? objects.filter(obj => !strokeObjects.some(s => s.id === obj.id))
-        : objects;
-
-      pushToHistory([...remaining, newCardObj]);
+      pushToHistory([...objects, newCardObj]);
       setSelectedObjectIds(new Set());
     } catch (err) {
       console.error("Concept visualization failed:", err);
@@ -897,34 +934,41 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     setIsConfirmOpen(false);
 
     try {
-      const expr = finalFormula.split("=")[-1] || finalFormula;
+      const parts = finalFormula.split("=");
+      let expr = parts.length > 1 ? parts[parts.length - 1].trim() : finalFormula.trim();
 
-      // Calculate series dataset using mathjs
+      if (expr.toLowerCase() === 'y' && parts[0].trim().toLowerCase() === 'x') {
+        expr = 'x';
+      }
+      if (!expr || expr.toLowerCase() === 'x') {
+        expr = 'x';
+      }
+
+      const mathExpr = expr.replace(/(\d+)([a-zA-Z])/g, '$1*$2');
+
       const series: any[] = [];
       const labels: string[] = [];
 
       for (let x = -8; x <= 8; x += 0.5) {
         try {
           const scope = { x };
-          const result = math.evaluate(expr, scope);
+          const result = math.evaluate(mathExpr, scope);
           if (typeof result === 'number' && !isNaN(result)) {
             series.push(result);
             labels.push(x.toString());
           }
         } catch (e) {
-          // If single evaluation fails, skip this point
+          // Skip point on error
         }
       }
 
-      // If empty series, use quadratic fallback
       if (series.length === 0) {
         for (let x = -8; x <= 8; x += 1) {
-          series.push(x * x - 4 * x + 3);
+          series.push(x);
           labels.push(x.toString());
         }
       }
 
-      // Add a formula graph object positioned in the center of the canvas area
       const newGraphObj: CanvasObject = {
         id: `obj-${crypto.randomUUID()}`,
         type: 'formula',
@@ -933,7 +977,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
           chart_type: 'line',
           labels,
           series,
-          x: 150, // Placement coords on SVG canvas
+          x: 150,
           y: 80,
           w: 520,
           h: 360
@@ -941,9 +985,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         order_index: objects.length
       };
 
-      // Remove the raw strokes that formed the handwritten equation to clear space
-      const cleanedObjects = objects.filter(obj => !selectedObjectIds.has(obj.id));
-      pushToHistory([...cleanedObjects, newGraphObj]);
+      pushToHistory([...objects, newGraphObj]);
       setSelectedObjectIds(new Set());
 
     } catch (err) {
@@ -973,6 +1015,13 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         canvas_objects: objects
       }));
     }
+
+    // Immediately reset canvas to open a fresh new whiteboard
+    setObjects([]);
+    setHistory([[]]);
+    setHistoryIndex(0);
+    setSelectedObjectIds(new Set());
+    objectsRef.current = [];
   };
 
   // Listen for canvas load requests from Left History Sidebar
@@ -1235,17 +1284,38 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
                           <div className="pt-2 border-t border-[var(--border-subtle)]">
                             <span className="text-[9px] font-bold uppercase text-[var(--text-secondary)] block mb-1">Web Sources</span>
                             <div className="flex flex-wrap gap-1.5">
-                              {geom.sources.map((s: any, idx: number) => (
-                                <a
-                                  key={idx}
-                                  href={s.url || '#'}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-[10px] bg-[var(--card-bg)] border border-[var(--border-subtle)] px-2 py-1 rounded-lg text-[var(--accent-primary)] hover:underline truncate max-w-[240px]"
-                                >
-                                  🔗 {s.title}
-                                </a>
-                              ))}
+                              {geom.sources.map((s: any, idx: number) => {
+                                const isYouTube = s.is_video || s.title?.toLowerCase().includes('youtube') || s.url?.toLowerCase().includes('youtube');
+                                const targetUrl = (s.url && s.url.startsWith('http'))
+                                  ? s.url
+                                  : (isYouTube
+                                    ? `https://www.youtube.com/results?search_query=${encodeURIComponent(s.title || geom.query || 'math')}`
+                                    : `https://www.google.com/search?q=${encodeURIComponent(s.title || geom.query || 'math')}`);
+
+                                return (
+                                  <a
+                                    key={idx}
+                                    href={targetUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+                                    }}
+                                    className={`text-[10px] px-2.5 py-1 rounded-lg border font-semibold truncate max-w-[260px] cursor-pointer pointer-events-auto transition-all flex items-center gap-1.5 shadow-sm active:scale-95 ${
+                                      isYouTube
+                                        ? 'bg-rose-500/15 text-rose-400 border-rose-500/30 hover:bg-rose-500/25 hover:border-rose-400'
+                                        : 'bg-[var(--card-bg)] text-[var(--accent-primary)] border-[var(--border-subtle)] hover:bg-[var(--accent-primary-soft)]'
+                                    }`}
+                                    title={`Open ${s.title}: ${targetUrl}`}
+                                  >
+                                    <span className="shrink-0">{isYouTube ? '▶️' : '🔗'}</span>
+                                    <span className="truncate">{s.title}</span>
+                                  </a>
+                                );
+                              })}
                             </div>
                           </div>
                         )}

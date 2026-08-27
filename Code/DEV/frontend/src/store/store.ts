@@ -152,16 +152,30 @@ export const useEduOSStore = create<EduOSStore>()(
       setUser: (user) => set({ user }),
       saveCanvasToHistory: (objects: any[], title?: string) => {
         if (!objects || objects.length === 0) return;
-        const newSession: SavedCanvasSession = {
-          id: `canvas-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          title: title || `Whiteboard Note #${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-          timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          objects,
-          objectCount: objects.length
-        };
-        set((state) => ({
-          savedCanvasHistory: [newSession, ...state.savedCanvasHistory]
-        }));
+        const targetTitle = title || `Whiteboard Note #${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        set((state) => {
+          // Prevent rapid duplicate saves (e.g. duplicate triggers within short timeframe with same content)
+          const lastSaved = state.savedCanvasHistory[0];
+          if (lastSaved) {
+            const isSameTitle = lastSaved.title === targetTitle;
+            const isSameCount = lastSaved.objectCount === objects.length;
+            const isDuplicateObjects = JSON.stringify(lastSaved.objects) === JSON.stringify(objects);
+            if (isDuplicateObjects || (isSameTitle && isSameCount)) {
+              return state;
+            }
+          }
+
+          const newSession: SavedCanvasSession = {
+            id: `canvas-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            title: targetTitle,
+            timestamp: new Date().toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            objects,
+            objectCount: objects.length
+          };
+          return {
+            savedCanvasHistory: [newSession, ...state.savedCanvasHistory]
+          };
+        });
       },
       deleteCanvasFromHistory: (id: string) => set((state) => ({
         savedCanvasHistory: state.savedCanvasHistory.filter(s => s.id !== id)
