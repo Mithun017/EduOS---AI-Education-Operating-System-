@@ -13,8 +13,8 @@ export default defineConfig({
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED') return;
-            console.error('API Proxy Error:', err);
+            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) return;
+            console.error('API Proxy Notice:', err);
           });
         }
       },
@@ -24,8 +24,8 @@ export default defineConfig({
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED') return;
-            console.error('WS Proxy Error:', err);
+            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) return;
+            console.error('WS Proxy Notice:', err);
           });
         }
       }
@@ -40,8 +40,8 @@ export default defineConfig({
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED') return;
-            console.error('API Proxy Error:', err);
+            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) return;
+            console.error('API Proxy Notice:', err);
           });
         }
       },
@@ -51,8 +51,8 @@ export default defineConfig({
         changeOrigin: true,
         configure: (proxy) => {
           proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED') return;
-            console.error('WS Proxy Error:', err);
+            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) return;
+            console.error('WS Proxy Notice:', err);
           });
         }
       }
