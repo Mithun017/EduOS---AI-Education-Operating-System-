@@ -201,7 +201,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
     <div
       ref={toolbarRef}
       style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
-      className="w-fit max-w-full inline-flex items-center gap-1.5 p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 flex-wrap relative justify-center select-none animate-fade-in"
+      className="w-fit max-w-[95vw] inline-flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 flex-wrap relative justify-center select-none animate-fade-in overflow-visible"
     >
       {/* Drag Handle (User Reference SVG Icon) */}
       <div
@@ -413,7 +413,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
         {/* Hover / Click Popover Menu for AI Analysis Tools */}
         {showAnalysisPopover && (
           <div
-            className="absolute top-full right-0 mt-2 p-2 bg-[var(--card-bg)] backdrop-blur-2xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 min-w-[210px] space-y-1 animate-fade-in"
+            className="absolute top-full right-0 mt-2 p-2 bg-[var(--card-bg)] backdrop-blur-2xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-[100] min-w-[220px] space-y-1 animate-fade-in pointer-events-auto"
             onMouseEnter={handleMouseEnterAnalysis}
             onMouseLeave={handleMouseLeaveAnalysis}
           >

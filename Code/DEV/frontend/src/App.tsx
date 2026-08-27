@@ -189,7 +189,7 @@ function App() {
   return (
     <div className="flex flex-col h-screen max-h-screen w-screen max-w-[100vw] overflow-hidden bg-[var(--bg-app)] text-[var(--text-primary)] transition-colors duration-300">
       {/* Top Header Bar */}
-      <header className="border-b border-[var(--border-subtle)] bg-[var(--glass-bg)] backdrop-blur-md sticky top-0 z-30 px-4 py-2 flex items-center justify-between gap-3 shrink-0 transition-all duration-300">
+      <header className="border-b border-[var(--border-subtle)] bg-[var(--glass-bg)] backdrop-blur-md sticky top-0 z-30 px-3 md:px-4 py-2 flex items-center justify-between gap-2 md:gap-3 shrink-0 flex-wrap sm:flex-nowrap transition-all duration-300">
         {/* Brand + Sidebar Toggle */}
         <div className="flex items-center gap-2">
           <button
@@ -203,37 +203,39 @@ function App() {
           <img
             src="/favicon.svg"
             alt="EduOS Logo"
-            className="w-7 h-7 rounded-lg shadow-sm hover:scale-105 transition-transform"
+            className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg shadow-sm hover:scale-105 transition-transform"
           />
           <div>
-            <h1 className="text-sm font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-1.5 leading-none">
+            <h1 className="text-xs sm:text-sm font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-1.5 leading-none">
               EduOS
             </h1>
           </div>
         </div>
 
         {/* Global Controls & Active Profile */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5">
           {/* Share Class & End Class Buttons for Teachers */}
           {user?.role === 'teacher' && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 onClick={() => handleOpenShareClass(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--accent-primary-soft)] hover:bg-[var(--accent-primary)] hover:text-white text-[var(--accent-primary)] text-xs font-bold transition-all cursor-pointer border border-[var(--border-subtle)] shadow-sm active:scale-95 shrink-0"
+                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[var(--accent-primary-soft)] hover:bg-[var(--accent-primary)] hover:text-white text-[var(--accent-primary)] text-[11px] sm:text-xs font-bold transition-all cursor-pointer border border-[var(--border-subtle)] shadow-sm active:scale-95 shrink-0"
                 title="Share Live Classroom Session with Students"
               >
-                <Share2 size={14} />
-                <span>Share Class</span>
+                <Share2 size={13} className="shrink-0" />
+                <span className="hidden sm:inline">Share Class</span>
+                <span className="sm:hidden">Share</span>
               </button>
 
               {roomId && (
                 <button
                   onClick={() => setIsEndClassModalOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-400 hover:text-white text-xs font-bold transition-all cursor-pointer border border-rose-500/30 shadow-sm active:scale-95 shrink-0"
+                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-400 hover:text-white text-[11px] sm:text-xs font-bold transition-all cursor-pointer border border-rose-500/30 shadow-sm active:scale-95 shrink-0"
                   title="End Active Classroom Session"
                 >
-                  <Square size={13} fill="currentColor" />
-                  <span>End Class</span>
+                  <Square size={12} fill="currentColor" className="shrink-0" />
+                  <span className="hidden sm:inline">End Class</span>
+                  <span className="sm:hidden">End</span>
                 </button>
               )}
             </div>
@@ -250,10 +252,10 @@ function App() {
 
           {/* Active User or Student Guest details */}
           {user ? (
-            <div className="flex items-center gap-2 bg-[var(--glass-bg)] px-3 py-1 rounded-lg border border-[var(--border-subtle)]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <div className="text-left">
-                <span className="text-[10px] font-semibold text-[var(--text-primary)] block leading-tight">
+            <div className="flex items-center gap-1.5 bg-[var(--glass-bg)] px-2.5 py-1 rounded-lg border border-[var(--border-subtle)]">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <div className="text-left hidden sm:block">
+                <span className="text-[10px] font-semibold text-[var(--text-primary)] block leading-tight truncate max-w-[120px]">
                   {user.fullName}
                 </span>
                 <span className="text-[8px] text-[var(--text-secondary)] font-mono tracking-wide block leading-none">
@@ -262,26 +264,26 @@ function App() {
               </div>
               <button
                 onClick={handleLogout}
-                className="ml-1 p-1 text-[var(--text-secondary)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                className="p-1 text-[var(--text-secondary)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
                 title="Log Out / Switch Account"
               >
                 <LogOut size={13} />
               </button>
             </div>
           ) : roomRole === 'student' ? (
-            <div className="flex items-center gap-2 bg-[var(--glass-bg)] px-3 py-1 rounded-lg border border-sky-500/30">
-              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
-              <div className="text-left">
-                <span className="text-[10px] font-semibold text-sky-300 block leading-tight">
+            <div className="flex items-center gap-1.5 bg-[var(--glass-bg)] px-2.5 py-1 rounded-lg border border-sky-500/30">
+              <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0" />
+              <div className="text-left hidden sm:block">
+                <span className="text-[10px] font-semibold text-sky-300 block leading-tight truncate max-w-[100px]">
                   {studentDisplayName}
                 </span>
                 <span className="text-[8px] text-[var(--text-secondary)] font-mono tracking-wide block leading-none">
-                  Student (Guest View)
+                  Student View
                 </span>
               </div>
               <button
                 onClick={() => setIsLoginModalOpen(true)}
-                className="ml-1 p-1 text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:bg-[var(--accent-primary-soft)] rounded-lg transition-colors cursor-pointer"
+                className="p-1 text-[var(--text-secondary)] hover:text-[var(--accent-primary)] hover:bg-[var(--accent-primary-soft)] rounded-lg transition-colors cursor-pointer"
                 title="Switch User / Login as Teacher"
               >
                 <UserCheck size={13} />
@@ -290,21 +292,31 @@ function App() {
           ) : (
             <button
               onClick={() => setIsLoginModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--accent-primary)] text-[var(--text-inverse)] font-bold text-xs shadow-sm hover:scale-105 transition-all cursor-pointer"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[var(--accent-primary)] text-[var(--text-inverse)] font-bold text-[11px] sm:text-xs shadow-sm hover:scale-105 transition-all cursor-pointer"
             >
-              <UserCheck size={14} />
-              <span>Log In / Join</span>
+              <UserCheck size={13} />
+              <span>Log In</span>
             </button>
           )}
         </div>
       </header>
 
       {/* Main Workspace Layout */}
-      <main className="flex-1 flex overflow-hidden p-3 md:p-4 gap-3 md:gap-4 transition-all duration-300 relative min-h-0">
+      <main className="flex-1 flex overflow-hidden p-2 sm:p-3 md:p-4 gap-2 md:gap-4 transition-all duration-300 relative min-h-0">
+        {/* Mobile Backdrop Overlay */}
+        {sidebarOpen && (
+          <div
+            onClick={() => setSidebarOpen(false)}
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden animate-fade-in"
+          />
+        )}
+
         {/* Collapsible Left Side Panel: Saved Whiteboard History */}
         <div
-          className={`transition-all duration-300 flex flex-col gap-3 shrink-0 h-full max-h-full overflow-y-auto scrollbar-thin ${
-            sidebarOpen ? 'w-72 opacity-100' : 'w-0 opacity-0 overflow-hidden pointer-events-none p-0 border-0'
+          className={`transition-all duration-300 flex flex-col gap-3 shrink-0 h-full max-h-full overflow-y-auto scrollbar-thin z-50 ${
+            sidebarOpen
+              ? 'fixed inset-y-0 left-0 w-72 p-3 bg-[var(--bg-app)] shadow-2xl md:relative md:inset-auto md:w-72 md:p-0 md:bg-transparent md:shadow-none opacity-100'
+              : 'w-0 opacity-0 overflow-hidden pointer-events-none p-0 border-0'
           }`}
         >
           <div className="glass-panel p-3.5 space-y-3 flex-1 flex flex-col min-h-0">
@@ -317,6 +329,7 @@ function App() {
               <button
                 onClick={() => {
                   loadCanvasSession({ id: 'blank', title: 'New Canvas', timestamp: '', objects: [], objectCount: 0 });
+                  if (window.innerWidth < 768) setSidebarOpen(false);
                 }}
                 className="flex items-center gap-1 px-2 py-1 bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-[var(--text-inverse)] rounded-lg text-[10px] font-bold transition-all cursor-pointer shadow-xs"
                 title="Start fresh blank canvas"
@@ -341,7 +354,10 @@ function App() {
 
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => loadCanvasSession(sess)}
+                        onClick={() => {
+                          loadCanvasSession(sess);
+                          if (window.innerWidth < 768) setSidebarOpen(false);
+                        }}
                         className="p-1.5 bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-[var(--text-inverse)] rounded-lg transition-all cursor-pointer"
                         title="Open Canvas Session"
                       >

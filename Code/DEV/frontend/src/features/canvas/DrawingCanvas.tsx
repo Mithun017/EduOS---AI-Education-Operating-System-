@@ -1076,8 +1076,8 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
 
       {/* Top Floating Toolbar (Hidden for Students in Read-Only Live View) */}
       {(viewMode === 'teacher' || roomRole !== 'student') && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-40 max-w-[95%] flex justify-center pointer-events-none">
-          <div className="pointer-events-auto">
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-[95%] flex justify-center pointer-events-none overflow-visible">
+          <div className="pointer-events-auto overflow-visible">
             <ShapeToolbar
             activeTool={activeTool}
             setActiveTool={setActiveTool}
@@ -1219,8 +1219,9 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             }
           } else if (obj.type === 'formula') {
             const geom = JSON.parse(obj.geometry_json);
-            const cardWidth = Math.max(geom.w || 680, 680);
-            const cardHeight = Math.max(geom.h || 460, 460);
+            const maxViewportWidth = typeof window !== 'undefined' ? Math.max(300, window.innerWidth - 30) : 680;
+            const cardWidth = Math.min(Math.max(geom.w || 540, 300), maxViewportWidth);
+            const cardHeight = Math.max(geom.h || 420, 380);
 
             const removeCard = () => {
               const remaining = objects.filter(o => o.id !== obj.id);
