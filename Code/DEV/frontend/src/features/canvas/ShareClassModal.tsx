@@ -5,9 +5,10 @@ import { useEduOSStore } from '../../store/store';
 interface ShareClassModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onEndClass?: () => void;
 }
 
-export const ShareClassModal: React.FC<ShareClassModalProps> = ({ isOpen, onClose }) => {
+export const ShareClassModal: React.FC<ShareClassModalProps> = ({ isOpen, onClose, onEndClass }) => {
   const { roomId, roomCode, roomSecret, connectedStudents } = useEduOSStore();
   const [copied, setCopied] = useState(false);
 
@@ -28,7 +29,7 @@ export const ShareClassModal: React.FC<ShareClassModalProps> = ({ isOpen, onClos
         <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
           <div className="flex items-center gap-2 text-[var(--accent-primary)] font-bold">
             <Share2 size={18} />
-            <h3 className="font-bold text-sm text-[var(--text-primary)]">Share Classroom Session</h3>
+            <h3 className="font-bold text-sm text-[var(--text-primary)]">Live Classroom Session</h3>
           </div>
           <button
             onClick={onClose}
@@ -86,7 +87,7 @@ export const ShareClassModal: React.FC<ShareClassModalProps> = ({ isOpen, onClos
               <span className="text-[10px] font-mono text-[var(--text-secondary)]">Live Presence</span>
             </div>
 
-            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+            <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
               {connectedStudents.length > 0 ? (
                 connectedStudents.map((std) => (
                   <div
@@ -112,6 +113,21 @@ export const ShareClassModal: React.FC<ShareClassModalProps> = ({ isOpen, onClos
               )}
             </div>
           </div>
+
+          {/* Stop / End Class option inside Share Modal */}
+          {onEndClass && (
+            <div className="pt-2 border-t border-[var(--border-subtle)]">
+              <button
+                onClick={() => {
+                  onClose();
+                  onEndClass();
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2 bg-rose-500/15 hover:bg-rose-600 hover:text-white text-rose-400 font-bold text-xs rounded-xl transition-all border border-rose-500/30 cursor-pointer shadow-sm active:scale-95"
+              >
+                <span>⏹ Stop / End Live Classroom</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

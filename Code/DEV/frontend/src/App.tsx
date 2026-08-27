@@ -111,9 +111,6 @@ function App() {
         });
       }
       if (roomRole !== 'teacher') setRoomSession({ roomId, roomRole: 'teacher' });
-      if (!roomId) {
-        handleOpenShareClass(false);
-      }
     } else if (pathname === '/login') {
       setIsLoginModalOpen(true);
     }
@@ -214,30 +211,23 @@ function App() {
 
         {/* Global Controls & Active Profile */}
         <div className="flex items-center gap-2 sm:gap-2.5">
-          {/* Share Class & End Class Buttons for Teachers */}
+          {/* Share Class / Share Link Button for Teachers */}
           {user?.role === 'teacher' && (
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex items-center">
               <button
-                onClick={() => handleOpenShareClass(true)}
-                className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[var(--accent-primary-soft)] hover:bg-[var(--accent-primary)] hover:text-white text-[var(--accent-primary)] text-[11px] sm:text-xs font-bold transition-all cursor-pointer border border-[var(--border-subtle)] shadow-sm active:scale-95 shrink-0"
-                title="Share Live Classroom Session with Students"
+                onClick={() => {
+                  if (!roomId) {
+                    handleOpenShareClass(true);
+                  } else {
+                    setIsShareModalOpen(true);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[var(--accent-primary-soft)] hover:bg-[var(--accent-primary)] hover:text-white text-[var(--accent-primary)] text-xs font-bold transition-all cursor-pointer border border-[var(--border-subtle)] shadow-sm active:scale-95 shrink-0"
+                title={!roomId ? "Start & Share Live Classroom Session" : "Share Live Classroom Session Link"}
               >
                 <Share2 size={13} className="shrink-0" />
-                <span className="hidden sm:inline">Share Class</span>
-                <span className="sm:hidden">Share</span>
+                <span>{!roomId ? "Share Class" : "Share Link"}</span>
               </button>
-
-              {roomId && (
-                <button
-                  onClick={() => setIsEndClassModalOpen(true)}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-rose-500/15 hover:bg-rose-600 text-rose-400 hover:text-white text-[11px] sm:text-xs font-bold transition-all cursor-pointer border border-rose-500/30 shadow-sm active:scale-95 shrink-0"
-                  title="End Active Classroom Session"
-                >
-                  <Square size={12} fill="currentColor" className="shrink-0" />
-                  <span className="hidden sm:inline">End Class</span>
-                  <span className="sm:hidden">End</span>
-                </button>
-              )}
             </div>
           )}
 
@@ -405,7 +395,11 @@ function App() {
       <FloatingChatWidget />
 
       {/* Real-Time Classroom Modals */}
-      <ShareClassModal isOpen={isShareModalOpen} onClose={() => setIsShareModalOpen(false)} />
+      <ShareClassModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        onEndClass={() => setIsEndClassModalOpen(true)}
+      />
       <JoinClassModal isOpen={isJoinModalOpen} roomCode={roomCode || 'CLASSROOM'} onJoin={handleJoinClassSubmit} />
       <EndClassModal
         isOpen={isEndClassModalOpen}
