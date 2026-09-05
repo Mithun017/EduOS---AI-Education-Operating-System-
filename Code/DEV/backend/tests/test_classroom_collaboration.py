@@ -34,3 +34,21 @@ def test_resolve_duplicate_display_names():
     # Third student "Alex" -> should become "Alex (3)"
     name3 = classroom_manager.resolve_display_name(room_id, "Alex")
     assert name3 == "Alex (3)"
+
+@pytest.mark.asyncio
+async def test_upload_classroom_document():
+    from io import BytesIO
+    from fastapi import UploadFile
+    from app.main import upload_classroom_document
+    
+    # Test uploading PDF document
+    pdf_content = b"%PDF-1.4 Mock PDF Content For Class Document Sharing"
+    file = UploadFile(filename="LectureNotes.pdf", file=BytesIO(pdf_content))
+    
+    res = await upload_classroom_document(file)
+    assert res["status"] == "success"
+    assert res["filename"] == "LectureNotes.pdf"
+    assert res["extension"] == "pdf"
+    assert res["file_size"] == len(pdf_content)
+    assert res["file_url"].startswith("/uploads/")
+

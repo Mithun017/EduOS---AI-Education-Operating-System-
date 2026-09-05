@@ -44,8 +44,12 @@ app.include_router(teacher_router)
 app.include_router(student_router)
 app.include_router(canvas_router)
 
+import os
+import shutil
+from pathlib import Path
 from typing import Optional, Dict, Any, List
-from fastapi import WebSocket, WebSocketDisconnect, HTTPException, Depends
+from fastapi import WebSocket, WebSocketDisconnect, HTTPException, Depends, File, UploadFile
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import json
 import uuid
@@ -54,6 +58,11 @@ from app.ws.stream import classroom_manager, ConnectionMetaData
 from app.core.security import decode_token
 
 logger = logging.getLogger(__name__)
+
+# Configure Uploads Directory for document sharing
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # Classroom HTTP Request Schemas
 class CreateClassroomRequest(BaseModel):
@@ -72,6 +81,46 @@ async def create_classroom_session(req: CreateClassroomRequest = CreateClassroom
         "room_code": room_info["room_code"],
         "secret_token": room_info["secret_token"]
     }
+
+@app.post("/api/v1/classroom/upload-document")
+async def upload_classroom_document(file: UploadFile = File(...)):
+    """
+    Upload documents (PDF, Word, PPT, Excel, TXT, etc.) for classroom document sharing.
+    Saves file to server uploads directory and returns accessible download/preview URL.
+    """
+    try:
+        raw_filename = file.filename or "document.bin"
+        clean_name = os.path.basename(raw_filename).replace(" ", "_")
+        unique_prefix = uuid.uuid4().hex[:8]
+        saved_filename = f"{unique_prefix}_{clean_name}"
+        file_path = os.path.join(UPLOAD_DIR, saved_filename)
+        
+        content = await file.read()
+        file_size = len(content)
+        
+        # Max limit 50MB
+        if file_size > 50 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="File size exceeds maximum allowed limit of 50MB.")
+            
+        with open(file_path, "wb") as f:
+            f.write(content)
+            
+        file_url = f"/uploads/{saved_filename}"
+        ext = os.path.splitext(raw_filename)[1].lower().lstrip(".")
+        
+        return {
+            "status": "success",
+            "file_url": file_url,
+            "filename": raw_filename,
+            "file_size": file_size,
+            "content_type": file.content_type or "application/octet-stream",
+            "extension": ext
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to upload document: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to process document upload: {str(e)}")
 
 
 @app.websocket("/ws/classroom/{room_id}")
@@ -242,13 +291,15 @@ async def classroom_websocket_endpoint(websocket: WebSocket, room_id: str):
                     continue
 
                 text = data.get("text", "").strip()
-                if text:
+                file_attachment = data.get("file_attachment")
+                if text or file_attachment:
                     chat_payload = {
                         "type": "chat_message",
                         "id": f"msg-{time.time()}-{uuid.uuid4().hex[:4]}",
                         "sender_role": conn_meta.role,
                         "sender_name": conn_meta.display_name,
                         "text": text,
+                        "file_attachment": file_attachment,
                         "timestamp": new_timestamp()
                     }
                     await classroom_manager.broadcast_to_room(room_id, chat_payload)

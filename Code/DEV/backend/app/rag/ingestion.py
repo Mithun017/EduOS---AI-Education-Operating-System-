@@ -32,7 +32,7 @@ def validate_upload_file(file: UploadFile, content: bytes):
     # 1. Size check
     if len(content) > MAX_FILE_SIZE_BYTES:
         raise FileValidationError(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"File size exceeds maximum allowed limit of {MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB."
         )
 

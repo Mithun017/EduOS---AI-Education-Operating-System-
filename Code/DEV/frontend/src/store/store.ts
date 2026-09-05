@@ -37,12 +37,21 @@ export interface RoomStudent {
   display_name: string;
 }
 
+export interface FileAttachment {
+  name: string;
+  size: number;
+  type: string;
+  url: string;
+  extension?: string;
+}
+
 export interface RoomChatMessage {
   id: string;
   sender_role: string;
   sender_name: string;
   text: string;
   timestamp: string;
+  file_attachment?: FileAttachment;
 }
 
 interface EduOSStore {

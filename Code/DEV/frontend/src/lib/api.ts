@@ -245,3 +245,61 @@ export const visualizeConceptForSelection = async (
   return response.json();
 };
 
+export const uploadClassroomDocument = async (file: File): Promise<{
+  file_url: string;
+  filename: string;
+  file_size: number;
+  content_type: string;
+  extension?: string;
+}> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/classroom/upload-document`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        file_url: data.file_url,
+        filename: data.filename || file.name,
+        file_size: data.file_size || file.size,
+        content_type: data.content_type || file.type || 'application/octet-stream',
+        extension: data.extension || file.name.split('.').pop()?.toLowerCase() || ''
+      };
+    }
+  } catch (err) {
+    console.warn("Classroom document upload endpoint unreachable, falling back to local object data URL", err);
+  }
+
+  // Fallback: Read as base64 data URL for offline / resilient delivery across network
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      const ext = file.name.split('.').pop()?.toLowerCase() || '';
+      resolve({
+        file_url: result || URL.createObjectURL(file),
+        filename: file.name,
+        file_size: file.size,
+        content_type: file.type || 'application/octet-stream',
+        extension: ext
+      });
+    };
+    reader.onerror = () => {
+      resolve({
+        file_url: URL.createObjectURL(file),
+        filename: file.name,
+        file_size: file.size,
+        content_type: file.type || 'application/octet-stream',
+        extension: file.name.split('.').pop()?.toLowerCase() || ''
+      });
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
+

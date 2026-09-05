@@ -19,8 +19,7 @@ import {
   FolderOpen,
   Share2,
   LogOut,
-  UserCheck,
-  Square
+  UserCheck
 } from 'lucide-react';
 
 function App() {
