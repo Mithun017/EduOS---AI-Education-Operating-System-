@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { PenTool, Eraser, Trash2, Undo2, Redo2, Grid, Move, BarChart2, Edit3, Shapes, Globe, Sparkles, ChevronDown, X } from 'lucide-react';
+import { PenTool, Eraser, Trash2, Undo2, Redo2, Grid, Move, BarChart2, Edit3, Shapes, Globe, Sparkles, ChevronDown, Upload } from 'lucide-react';
 
 interface ShapeToolbarProps {
   activeTool: 'pen' | 'eraser' | 'lasso' | 'select';
@@ -21,6 +21,7 @@ interface ShapeToolbarProps {
   onWebSearch: () => void;
   onVisualize: () => void;
   onSaveCanvas: () => void;
+  onUploadFile?: (file: File) => void;
   hasSelection: boolean;
 }
 
@@ -61,12 +62,14 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   onWebSearch,
   onVisualize,
   onSaveCanvas,
+  onUploadFile,
   hasSelection: _hasSelection,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [_isDragging, setIsDragging] = useState(false);
   const toolbarRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const dragStartRef = useRef<{
     startX: number;
     startY: number;
@@ -85,7 +88,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   const handlePointerDown = (e: React.PointerEvent) => {
     try {
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    } catch {}
+    } catch { }
 
     const toolbarEl = toolbarRef.current;
     const startLeft = toolbarEl ? toolbarEl.getBoundingClientRect().left : 0;
@@ -147,7 +150,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
   const handlePointerUp = (e: React.PointerEvent) => {
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-    } catch {}
+    } catch { }
     setIsDragging(false);
     if (dragStartRef.current && !dragStartRef.current.hasMoved) {
       setIsExpanded((prev) => !prev);
@@ -190,7 +193,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
         title="Click to open Whiteboard Toolbar (Drag to move)"
       >
         <svg xmlns="http://www.w3.org/2000/svg" height="22px" viewBox="0 -960 960 960" width="22px" fill="currentColor" className="text-[var(--text-secondary)] group-hover:text-[var(--accent-primary)] transition-colors group-hover:scale-110">
-          <path d="M480-480ZM370-80l-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-74 56q-22-11-45-18.5T714-558l63-48-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q17 17 36.5 30.5T400-275q1 57 23.5 107T484-80H370Zm41-279q6-20 14.5-38.5T445-433q-11-8-17-20.5t-6-26.5q0-25 17.5-42.5T482-540q14 0 27 6.5t21 17.5q17-11 35-19.5t38-13.5q-18-32-50-51.5T482-620q-59 0-99.5 41T342-480q0 38 18.5 70.5T411-359Zm269 199 120-120-120-120-28 28 72 72H560v40h163l-71 72 28 28Zm-141.5 21.5Q480-197 480-280t58.5-141.5Q597-480 680-480t141.5 58.5Q880-363 880-280t-58.5 141.5Q763-80 680-80t-141.5-58.5Z"/>
+          <path d="M480-480ZM370-80l-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-74 56q-22-11-45-18.5T714-558l63-48-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q17 17 36.5 30.5T400-275q1 57 23.5 107T484-80H370Zm41-279q6-20 14.5-38.5T445-433q-11-8-17-20.5t-6-26.5q0-25 17.5-42.5T482-540q14 0 27 6.5t21 17.5q17-11 35-19.5t38-13.5q-18-32-50-51.5T482-620q-59 0-99.5 41T342-480q0 38 18.5 70.5T411-359Zm269 199 120-120-120-120-28 28 72 72H560v40h163l-71 72 28 28Zm-141.5 21.5Q480-197 480-280t58.5-141.5Q597-480 680-480t141.5 58.5Q880-363 880-280t-58.5 141.5Q763-80 680-80t-141.5-58.5Z" />
         </svg>
       </div>
     );
@@ -201,7 +204,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
     <div
       ref={toolbarRef}
       style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
-      className="w-fit max-w-[95vw] inline-flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 flex-wrap relative justify-center select-none animate-fade-in overflow-visible"
+      className="w-fit max-w-[95vw] inline-flex items-center gap-1 sm:gap-1.5 p-1 sm:p-1.5 bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--border-subtle)] rounded-2xl shadow-2xl z-50 flex-nowrap whitespace-nowrap relative justify-center select-none animate-fade-in overflow-visible"
     >
       {/* Drag Handle (User Reference SVG Icon) */}
       <div
@@ -212,7 +215,7 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
         title="Drag toolbar to move anywhere"
       >
         <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor">
-          <path d="M480-480ZM370-80l-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-74 56q-22-11-45-18.5T714-558l63-48-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q17 17 36.5 30.5T400-275q1 57 23.5 107T484-80H370Zm41-279q6-20 14.5-38.5T445-433q-11-8-17-20.5t-6-26.5q0-25 17.5-42.5T482-540q14 0 27 6.5t21 17.5q17-11 35-19.5t38-13.5q-18-32-50-51.5T482-620q-59 0-99.5 41T342-480q0 38 18.5 70.5T411-359Zm269 199 120-120-120-120-28 28 72 72H560v40h163l-71 72 28 28Zm-141.5 21.5Q480-197 480-280t58.5-141.5Q597-480 680-480t141.5 58.5Q880-363 880-280t-58.5 141.5Q763-80 680-80t-141.5-58.5Z"/>
+          <path d="M480-480ZM370-80l-16-128q-13-5-24.5-12T307-235l-119 50L78-375l103-78q-1-7-1-13.5v-27q0-6.5 1-13.5L78-585l110-190 119 50q11-8 23-15t24-12l16-128h220l16 128q13 5 24.5 12t22.5 15l119-50 110 190-74 56q-22-11-45-18.5T714-558l63-48-39-68-99 42q-22-23-48.5-38.5T533-694l-13-106h-79l-14 106q-31 8-57.5 23.5T321-633l-99-41-39 68 86 64q-5 15-7 30t-2 32q0 16 2 31t7 30l-86 65 39 68 99-42q17 17 36.5 30.5T400-275q1 57 23.5 107T484-80H370Zm41-279q6-20 14.5-38.5T445-433q-11-8-17-20.5t-6-26.5q0-25 17.5-42.5T482-540q14 0 27 6.5t21 17.5q17-11 35-19.5t38-13.5q-18-32-50-51.5T482-620q-59 0-99.5 41T342-480q0 38 18.5 70.5T411-359Zm269 199 120-120-120-120-28 28 72 72H560v40h163l-71 72 28 28Zm-141.5 21.5Q480-197 480-280t58.5-141.5Q597-480 680-480t141.5 58.5Q880-363 880-280t-58.5 141.5Q763-80 680-80t-141.5-58.5Z" />
         </svg>
       </div>
 
@@ -228,11 +231,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
             setActiveTool('pen');
             setShowPenPopover(!showPenPopover);
           }}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer ${
-            activeTool === 'pen'
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all cursor-pointer ${activeTool === 'pen'
               ? 'bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] border border-[var(--accent-primary)] font-bold shadow-sm'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)]'
-          }`}
+            }`}
           title="Pen tool (Hover or click to customize colors, marker size & writing/drawing mode)"
         >
           <div className="relative flex items-center justify-center">
@@ -259,22 +261,20 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
               <div className="flex gap-1 p-1 bg-[var(--glass-bg)] rounded-xl border border-[var(--border-subtle)]">
                 <button
                   onClick={() => setCanvasMode('writing')}
-                  className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    canvasMode === 'writing'
+                  className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${canvasMode === 'writing'
                       ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] shadow-sm'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
+                    }`}
                 >
                   <Edit3 size={13} />
                   <span>Writing</span>
                 </button>
                 <button
                   onClick={() => setCanvasMode('drawing')}
-                  className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    canvasMode === 'drawing'
+                  className={`flex-1 flex items-center justify-center gap-1 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${canvasMode === 'drawing'
                       ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)] shadow-sm'
                       : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                  }`}
+                    }`}
                 >
                   <Shapes size={13} />
                   <span>Drawing</span>
@@ -290,9 +290,8 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
                   <button
                     key={c.name}
                     onClick={() => setStrokeColor(c.value)}
-                    className={`w-5 h-5 rounded-full transition-transform hover:scale-125 cursor-pointer ${
-                      strokeColor === c.value ? 'ring-2 ring-offset-2 ring-[var(--accent-primary)] scale-110' : 'opacity-85'
-                    }`}
+                    className={`w-5 h-5 rounded-full transition-transform hover:scale-125 cursor-pointer ${strokeColor === c.value ? 'ring-2 ring-offset-2 ring-[var(--accent-primary)] scale-110' : 'opacity-85'
+                      }`}
                     style={{ backgroundColor: c.value }}
                     title={`Color: ${c.name}`}
                   />
@@ -308,11 +307,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
                   <button
                     key={s.label}
                     onClick={() => setStrokeWidth(s.value)}
-                    className={`flex items-center justify-center p-1.5 rounded-lg transition-all cursor-pointer ${
-                      strokeWidth === s.value
+                    className={`flex items-center justify-center p-1.5 rounded-lg transition-all cursor-pointer ${strokeWidth === s.value
                         ? 'bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] border border-[var(--accent-primary)] font-bold'
                         : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                    }`}
+                      }`}
                     title={`Marker Size: ${s.label} (${s.value}px)`}
                   >
                     <div className={`rounded-full bg-[var(--accent-primary)] ${s.sizeClass}`} />
@@ -328,11 +326,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       <div className="flex items-center gap-1">
         <button
           onClick={() => setActiveTool('eraser')}
-          className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-            activeTool === 'eraser'
+          className={`p-1.5 rounded-xl transition-all cursor-pointer ${activeTool === 'eraser'
               ? 'bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] border border-[var(--accent-primary)] font-bold'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)]'
-          }`}
+            }`}
           title="Eraser tool"
         >
           <Eraser size={15} />
@@ -340,11 +337,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
 
         <button
           onClick={() => setActiveTool('lasso')}
-          className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-            activeTool === 'lasso'
+          className={`p-1.5 rounded-xl transition-all cursor-pointer ${activeTool === 'lasso'
               ? 'bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] border border-[var(--accent-primary)] font-bold'
               : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)]'
-          }`}
+            }`}
           title="Lasso select"
         >
           <Move size={15} />
@@ -356,11 +352,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       {/* Grid snap & Undo/Redo */}
       <button
         onClick={() => setSnapToGrid(!snapToGrid)}
-        className={`p-1.5 rounded-xl transition-all cursor-pointer ${
-          snapToGrid
+        className={`p-1.5 rounded-xl transition-all cursor-pointer ${snapToGrid
             ? 'bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] border border-[var(--accent-primary)] font-bold'
             : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)]'
-        }`}
+          }`}
         title="Snap to Grid"
       >
         <Grid size={15} />
@@ -369,11 +364,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       <button
         onClick={onUndo}
         disabled={!canUndo}
-        className={`p-1.5 rounded-xl transition-all ${
-          canUndo
+        className={`p-1.5 rounded-xl transition-all ${canUndo
             ? 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)] cursor-pointer'
             : 'opacity-40 cursor-not-allowed text-[var(--text-secondary)]'
-        }`}
+          }`}
         title="Undo"
       >
         <Undo2 size={15} />
@@ -382,11 +376,10 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
       <button
         onClick={onRedo}
         disabled={!canRedo}
-        className={`p-1.5 rounded-xl transition-all ${
-          canRedo
+        className={`p-1.5 rounded-xl transition-all ${canRedo
             ? 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)] cursor-pointer'
             : 'opacity-40 cursor-not-allowed text-[var(--text-secondary)]'
-        }`}
+          }`}
         title="Redo"
       >
         <Redo2 size={15} />
@@ -468,14 +461,40 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
 
       <div className="h-5 w-[1px] bg-[var(--border-subtle)] mx-0.5" />
 
-      {/* 4. SAVE CANVAS BUTTON (User reference SVG Icon) */}
+      {/* Hidden File Input for Canvas Image / Doc Upload */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file && onUploadFile) {
+            onUploadFile(file);
+          }
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        }}
+        accept="image/*,.pdf,.ppt,.pptx,.doc,.docx,.txt"
+        className="hidden"
+      />
+
+      {/* 4. UPLOAD IMAGE / DOCUMENT BUTTON (Upper Arrow Icon) */}
+      <button
+        onClick={() => fileInputRef.current?.click()}
+        className="p-1.5 text-sky-400 hover:text-sky-300 hover:bg-sky-500/15 border border-[var(--border-subtle)] hover:border-sky-500/50 rounded-xl transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
+        title="Upload Image, PDF, PPT, Word or Document to Canvas"
+      >
+        <Upload size={15} />
+      </button>
+
+      {/* 5. SAVE CANVAS BUTTON (User reference SVG Icon) */}
       <button
         onClick={onSaveCanvas}
         className="p-1.5 text-[var(--accent-primary)] hover:bg-[var(--accent-primary-soft)] border border-[var(--border-subtle)] hover:border-[var(--accent-primary)] rounded-xl transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
         title="Save Canvas to History"
       >
         <svg xmlns="http://www.w3.org/2000/svg" height="18px" viewBox="0 -960 960 960" width="18px" fill="currentColor">
-          <path d="m720-120 160-160-56-56-64 64v-167h-80v167l-64-64-56 56 160 160ZM560 0v-80h320V0H560ZM240-160q-33 0-56.5-23.5T160-240v-560q0-33 23.5-56.5T240-880h280l240 240v121h-80v-81H480v-200H240v560h240v80H240Zm0-80v-560 560Z"/>
+          <path d="m720-120 160-160-56-56-64 64v-167h-80v167l-64-64-56 56 160 160ZM560 0v-80h320V0H560ZM240-160q-33 0-56.5-23.5T160-240v-560q0-33 23.5-56.5T240-880h280l240 240v121h-80v-81H480v-200H240v560h240v80H240Zm0-80v-560 560Z" />
         </svg>
       </button>
 
@@ -486,17 +505,6 @@ export const ShapeToolbar: React.FC<ShapeToolbarProps> = ({
         title="Clear canvas"
       >
         <Trash2 size={15} />
-      </button>
-
-      <div className="h-5 w-[1px] bg-[var(--border-subtle)] mx-0.5" />
-
-      {/* Collapse button to shrink back to round icon */}
-      <button
-        onClick={() => setIsExpanded(false)}
-        className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--accent-primary-soft)] rounded-xl transition-all cursor-pointer"
-        title="Collapse to round button widget"
-      >
-        <X size={15} />
       </button>
     </div>
   );

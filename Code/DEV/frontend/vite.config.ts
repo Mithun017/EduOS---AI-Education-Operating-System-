@@ -12,9 +12,11 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         configure: (proxy) => {
-          proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) return;
-            console.error('API Proxy Notice:', err);
+          proxy.on('error', (err: any, _req: any, res: any) => {
+            if (res && !res.headersSent && typeof res.writeHead === 'function') {
+              res.writeHead(502, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Proxy connection reset', code: err?.code }));
+            }
           });
         }
       },
@@ -23,9 +25,8 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
         configure: (proxy) => {
-          proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) return;
-            console.error('WS Proxy Notice:', err);
+          proxy.on('error', (_err: any) => {
+            // Silence transient websocket disconnects during dev hot-reloads
           });
         }
       }
@@ -39,9 +40,11 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         configure: (proxy) => {
-          proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) return;
-            console.error('API Proxy Notice:', err);
+          proxy.on('error', (err: any, _req: any, res: any) => {
+            if (res && !res.headersSent && typeof res.writeHead === 'function') {
+              res.writeHead(502, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Proxy connection reset', code: err?.code }));
+            }
           });
         }
       },
@@ -50,9 +53,8 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
         configure: (proxy) => {
-          proxy.on('error', (err: any) => {
-            if (err?.code === 'ECONNRESET' || err?.code === 'ECONNABORTED' || err?.code === 'ECONNREFUSED' || err?.message?.includes('ECONNREFUSED')) return;
-            console.error('WS Proxy Notice:', err);
+          proxy.on('error', (_err: any) => {
+            // Silence transient websocket disconnects
           });
         }
       }

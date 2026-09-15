@@ -179,8 +179,20 @@ async def save_canvas_objects(
         CanvasSession.institution_id == institution_id
     )
     session_result = await db.execute(session_query)
-    if not session_result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="Canvas session not found")
+    session_obj = session_result.scalar_one_or_none()
+    if not session_obj:
+        # Auto-create session if missing to ensure seamless auto-saving
+        session_obj = CanvasSession(
+            id=session_id,
+            institution_id=institution_id,
+            topic_id="dynamic-ai-scope",
+            owner_user_id=token_payload.get("sub", "teacher")
+        )
+        db.add(session_obj)
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
 
     # Deduplicate payload objects by ID (keeping latest state per ID)
     unique_payload_objects = {}

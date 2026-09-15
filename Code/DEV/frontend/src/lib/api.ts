@@ -100,7 +100,7 @@ export const askStudentHTTP = async (
 // Canvas & Drawing System Interfaces
 export interface CanvasObject {
   id: string;
-  type: 'stroke' | 'shape' | 'formula' | 'text';
+  type: 'stroke' | 'shape' | 'formula' | 'text' | 'image' | 'document';
   geometry_json: string;
   style_json?: string | null;
   recognized_as?: string | null;

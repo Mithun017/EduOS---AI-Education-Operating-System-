@@ -37,7 +37,7 @@ echo - Frontend will run at: http://localhost:5173
 echo ==========================================
 echo.
 echo 🌐 Opening Frontend in your default browser in 5 seconds...
-ping 127.0.0.1 -n 3 >nul
+ping 127.0.0.1 -n 4 >nul
 start http://localhost:5173
 
 pause

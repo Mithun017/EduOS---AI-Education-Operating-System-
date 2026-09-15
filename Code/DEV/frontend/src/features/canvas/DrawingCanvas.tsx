@@ -1,12 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { getStroke } from 'perfect-freehand';
 import * as math from 'mathjs';
-import { X, GripHorizontal } from 'lucide-react';
+import { X, GripHorizontal, Minus, Plus, Edit3 } from 'lucide-react';
+import mammoth from 'mammoth';
 import { useEduOSStore } from '../../store/store';
 import { ShapeToolbar } from './ShapeToolbar';
 import { FormulaConfirmDialog } from './FormulaConfirmDialog';
 import { SaveCanvasModal } from './SaveCanvasModal';
 import { SecondBrainGraphModal } from './SecondBrainGraphModal';
+import { DocumentCanvasModal } from './DocumentCanvasModal';
+import type { DocumentAnnotationData } from './DocumentCanvasModal';
 import { fetchCanvasSession, saveCanvasObjects, recognizeFormula, searchWebForSelection, visualizeConceptForSelection } from '../../lib/api';
 import type { CanvasObject } from '../../lib/api';
 import { ChartCard } from '../teacher-assistant/ResponseRenderers';
@@ -97,6 +100,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   const [recognizedFormulaText, setRecognizedFormulaText] = useState('');
   const [isRecognizing, setIsRecognizing] = useState(false);
   const [isGraphicalViewOpen, setIsGraphicalViewOpen] = useState(false);
+  const [activeDocumentModal, setActiveDocumentModal] = useState<DocumentAnnotationData | null>(null);
 
   // Auto-save debounce timer
   const saveTimerRef = useRef<any>(null);
@@ -993,6 +997,353 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
     }
   };
 
+  const removeObject = (id: string) => {
+    const remaining = objects.filter(o => o.id !== id);
+    pushToHistory(remaining);
+  };
+
+  const toggleCardMinimize = (id: string) => {
+    const updated = objects.map(o => {
+      if (o.id !== id) return o;
+      try {
+        const geom = JSON.parse(o.geometry_json);
+        const isMinimized = !geom.is_minimized;
+        return {
+          ...o,
+          geometry_json: JSON.stringify({
+            ...geom,
+            is_minimized: isMinimized
+          })
+        };
+      } catch {
+        return o;
+      }
+    });
+    pushToHistory(updated);
+  };
+
+  const toggleCardMaximize = (id: string) => {
+    const updated = objects.map(o => {
+      if (o.id !== id) return o;
+      try {
+        const geom = JSON.parse(o.geometry_json);
+        const isMaximized = !geom.is_maximized;
+        const origW = geom.orig_w || geom.w || 560;
+        const origH = geom.orig_h || geom.h || 420;
+        const maxViewportW = typeof window !== 'undefined' ? Math.max(320, window.innerWidth - 80) : 860;
+        const targetW = isMaximized ? Math.min(880, maxViewportW) : origW;
+        const targetH = isMaximized ? 620 : origH;
+
+        return {
+          ...o,
+          geometry_json: JSON.stringify({
+            ...geom,
+            is_minimized: false,
+            is_maximized: isMaximized,
+            orig_w: origW,
+            orig_h: origH,
+            w: targetW,
+            h: targetH
+          })
+        };
+      } catch {
+        return o;
+      }
+    });
+    pushToHistory(updated);
+  };
+
+  // Upload file (Image, PDF, PPT, Word, Text) directly onto Canvas board
+  const handleUploadFileToCanvas = async (file: File) => {
+    const isImage = file.type.startsWith('image/') || /\.(png|jpe?g|webp|svg|gif|bmp|ico)$/i.test(file.name);
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    const isDocx = /\.docx$/i.test(file.name) || file.type.includes('wordprocessingml');
+    const isWord = /\.doc$/i.test(file.name) || file.type.includes('msword') || isDocx;
+    const isPpt = /\.(ppt|pptx)$/i.test(file.name) || file.type.includes('presentation') || file.type.includes('powerpoint');
+    const isText = file.type.startsWith('text/') || /\.(txt|md|csv|json|py|js|ts|html)$/i.test(file.name);
+
+    if (isImage) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width || 500;
+          let h = img.height || 350;
+          const maxW = 540;
+          if (w > maxW) {
+            h = Math.round((h * maxW) / w);
+            w = maxW;
+          }
+          const newImageObj: CanvasObject = {
+            id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            type: 'image',
+            geometry_json: JSON.stringify({
+              x: 80,
+              y: 60,
+              w,
+              h,
+              src: dataUrl,
+              name: file.name,
+              size: file.size,
+              file_type: file.type || 'image/png',
+              is_minimized: false,
+              is_maximized: false
+            }),
+            order_index: objects.length
+          };
+          pushToHistory([...objects, newImageObj]);
+          setActiveDocumentModal({
+            id: newImageObj.id,
+            name: file.name,
+            fileType: file.type || 'image/png',
+            src: dataUrl
+          });
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    } else if (isDocx) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const htmlRes = await mammoth.convertToHtml({ arrayBuffer });
+        const rawTextRes = await mammoth.extractRawText({ arrayBuffer });
+        const htmlContent = htmlRes.value;
+        const textContent = rawTextRes.value;
+
+        const newDocObj: CanvasObject = {
+          id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          type: 'document',
+          geometry_json: JSON.stringify({
+            x: 80,
+            y: 60,
+            w: 600,
+            h: 460,
+            html_content: htmlContent,
+            text_content: textContent,
+            name: file.name,
+            size: file.size,
+            file_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            is_minimized: false,
+            is_maximized: false
+          }),
+          order_index: objects.length
+        };
+        pushToHistory([...objects, newDocObj]);
+        setActiveDocumentModal({
+          id: newDocObj.id,
+          name: file.name,
+          fileType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          htmlContent,
+          textContent
+        });
+      } catch (err) {
+        console.error("Failed to parse docx with mammoth:", err);
+        // Fallback to reading as text
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const textContent = e.target?.result as string;
+          const newDocObj: CanvasObject = {
+            id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            type: 'document',
+            geometry_json: JSON.stringify({
+              x: 80,
+              y: 60,
+              w: 560,
+              h: 420,
+              text_content: textContent || `Word Document: ${file.name}`,
+              name: file.name,
+              size: file.size,
+              file_type: file.type || 'application/msword',
+              is_minimized: false,
+              is_maximized: false
+            }),
+            order_index: objects.length
+          };
+          pushToHistory([...objects, newDocObj]);
+          setActiveDocumentModal({
+            id: newDocObj.id,
+            name: file.name,
+            fileType: file.type || 'application/msword',
+            textContent: textContent || `Word Document: ${file.name}`
+          });
+        };
+        reader.readAsText(file);
+      }
+    } else if (isPdf) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        const newDocObj: CanvasObject = {
+          id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          type: 'document',
+          geometry_json: JSON.stringify({
+            x: 80,
+            y: 60,
+            w: 580,
+            h: 440,
+            src: dataUrl,
+            name: file.name,
+            size: file.size,
+            file_type: 'application/pdf',
+            is_minimized: false,
+            is_maximized: false
+          }),
+          order_index: objects.length
+        };
+        pushToHistory([...objects, newDocObj]);
+        setActiveDocumentModal({
+          id: newDocObj.id,
+          name: file.name,
+          fileType: 'application/pdf',
+          src: dataUrl
+        });
+      };
+      reader.readAsDataURL(file);
+    } else if (isText) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const textContent = e.target?.result as string;
+        const newDocObj: CanvasObject = {
+          id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          type: 'document',
+          geometry_json: JSON.stringify({
+            x: 80,
+            y: 60,
+            w: 540,
+            h: 380,
+            text_content: textContent,
+            name: file.name,
+            size: file.size,
+            file_type: file.type || 'text/plain',
+            is_minimized: false,
+            is_maximized: false
+          }),
+          order_index: objects.length
+        };
+        pushToHistory([...objects, newDocObj]);
+        setActiveDocumentModal({
+          id: newDocObj.id,
+          name: file.name,
+          fileType: file.type || 'text/plain',
+          textContent
+        });
+      };
+      reader.readAsText(file);
+    } else if (isWord || isPpt) {
+      // Word (.doc) or PowerPoint (.ppt / .pptx)
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        const newDocObj: CanvasObject = {
+          id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          type: 'document',
+          geometry_json: JSON.stringify({
+            x: 80,
+            y: 60,
+            w: 560,
+            h: 400,
+            src: dataUrl,
+            name: file.name,
+            size: file.size,
+            file_type: file.type || (isPpt ? 'application/vnd.ms-powerpoint' : 'application/msword'),
+            is_minimized: false,
+            is_maximized: false
+          }),
+          order_index: objects.length
+        };
+        pushToHistory([...objects, newDocObj]);
+        setActiveDocumentModal({
+          id: newDocObj.id,
+          name: file.name,
+          fileType: file.type || (isPpt ? 'application/vnd.ms-powerpoint' : 'application/msword'),
+          src: dataUrl
+        });
+      };
+      reader.readAsDataURL(file);
+    } else {
+      // Generic document
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        const newDocObj: CanvasObject = {
+          id: `doc-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          type: 'document',
+          geometry_json: JSON.stringify({
+            x: 80,
+            y: 60,
+            w: 540,
+            h: 380,
+            src: dataUrl,
+            name: file.name,
+            size: file.size,
+            file_type: file.type || 'application/octet-stream',
+            is_minimized: false,
+            is_maximized: false
+          }),
+          order_index: objects.length
+        };
+        pushToHistory([...objects, newDocObj]);
+        setActiveDocumentModal({
+          id: newDocObj.id,
+          name: file.name,
+          fileType: file.type || 'application/octet-stream',
+          src: dataUrl
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Export Canvas along with all underlying uploaded files and handwritten markings to PNG
+  const handleExportCanvasWithMarkings = (title: string = 'Annotated_Whiteboard_Note') => {
+    if (!canvasRef.current) return;
+    try {
+      const svgElement = canvasRef.current;
+      const rect = svgElement.getBoundingClientRect();
+      const width = rect.width || 1200;
+      const height = rect.height || 800;
+
+      const svgString = new XMLSerializer().serializeToString(svgElement);
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width * 2;
+        canvas.height = height * 2;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.scale(2, 2);
+          const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+          ctx.fillStyle = isLight ? '#F8FAFC' : '#061A1E';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const pngUrl = canvas.toDataURL('image/png');
+          const downloadLink = document.createElement('a');
+          downloadLink.href = pngUrl;
+          downloadLink.download = `${title.trim().replace(/\s+/g, '_')}_annotated.png`;
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+          document.body.removeChild(downloadLink);
+          URL.revokeObjectURL(url);
+          setIsSaveModalOpen(false);
+          setSaveNotification(true);
+          setTimeout(() => setSaveNotification(false), 2500);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        alert("Failed to rasterize canvas for export.");
+      };
+      img.src = url;
+    } catch (e) {
+      console.error("Canvas export failed:", e);
+    }
+  };
+
   // Save Modal State
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
 
@@ -1035,7 +1386,15 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
   }, [activeCanvasSessionToLoad, loadCanvasSession]);
 
   return (
-    <div className="relative flex flex-col h-full bg-[var(--glass-bg)] backdrop-blur-md rounded-2xl border border-[var(--border-subtle)] overflow-hidden shadow-2xl">
+    <div
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files?.[0];
+        if (file) handleUploadFileToCanvas(file);
+      }}
+      className="relative flex flex-col h-full bg-[var(--glass-bg)] backdrop-blur-md rounded-2xl border border-[var(--border-subtle)] overflow-hidden shadow-2xl"
+    >
       {/* Student Read-Only Live Badge */}
       {roomRole === 'student' && isLiveConnected && (
         <div className="absolute top-4 left-4 z-40 px-3 py-1.5 bg-sky-500/20 backdrop-blur-md text-sky-300 font-bold text-xs rounded-xl border border-sky-500/30 flex items-center gap-2 shadow-lg select-none">
@@ -1098,6 +1457,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
             onWebSearch={handleWebSearch}
             onVisualize={handleVisualize}
             onSaveCanvas={handleSaveCanvas}
+            onUploadFile={handleUploadFileToCanvas}
             hasSelection={selectedObjectIds.size > 0}
           />
           </div>
@@ -1444,6 +1804,290 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
                 </foreignObject>
               </g>
             );
+          } else if (obj.type === 'image') {
+            const geom = JSON.parse(obj.geometry_json);
+            const isMinimized = !!geom.is_minimized;
+            const isMaximized = !!geom.is_maximized;
+
+            const maxViewportWidth = typeof window !== 'undefined' ? Math.max(300, window.innerWidth - 30) : 680;
+            const imgWidth = Math.min(geom.w || (isMaximized ? 800 : 500), maxViewportWidth);
+            const imgHeight = geom.h || (isMaximized ? 540 : 350);
+            const headerHeight = 38;
+            const totalHeight = isMinimized ? headerHeight : (imgHeight + headerHeight);
+
+            return (
+              <g key={obj.id} transform={`translate(${geom.x || 80}, ${geom.y || 60})`}>
+                <rect
+                  width={imgWidth}
+                  height={totalHeight}
+                  fill="var(--glass-bg)"
+                  rx={isMinimized ? 12 : 16}
+                  stroke="var(--border-subtle)"
+                  strokeWidth={1.5}
+                  className="shadow-2xl"
+                />
+                <foreignObject width={imgWidth} height={headerHeight}>
+                  <div
+                    onPointerDown={(e) => handleCardDragStart(e, obj.id, geom.x || 80, geom.y || 60)}
+                    className="flex items-center justify-between px-3 py-1.5 bg-[var(--accent-primary-soft)]/80 rounded-t-2xl border-b border-[var(--border-subtle)] cursor-grab active:cursor-grabbing text-xs select-none backdrop-blur-md h-[38px]"
+                    title="Click & Drag header to move image anywhere on canvas"
+                  >
+                    <span className="font-bold text-[11px] text-[var(--text-primary)] flex items-center gap-1.5 truncate max-w-[55%]">
+                      <GripHorizontal size={14} className="opacity-70 shrink-0" />
+                      <span className="truncate">📷 {geom.name || 'Uploaded Image'}</span>
+                      {geom.strokes && geom.strokes.length > 0 && (
+                        <span className="text-[9px] font-mono text-[var(--accent-primary)] bg-[var(--card-bg)] px-1.5 py-0.5 rounded border border-[var(--border-subtle)] shrink-0">
+                          ✎ {geom.strokes.length}
+                        </span>
+                      )}
+                    </span>
+
+                    {/* Window Controls: [-] Minimize, [+] Maximize, [X] Close */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[9px] font-mono text-[var(--text-secondary)] bg-[var(--card-bg)] px-2 py-0.5 rounded border border-[var(--border-subtle)]">
+                        {Math.round(imgWidth)}×{Math.round(imgHeight)}
+                      </span>
+
+                      {/* Annotate / Open Full Canvas Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveDocumentModal({
+                            id: obj.id,
+                            name: geom.name || 'Uploaded Image',
+                            fileType: geom.file_type || 'image/png',
+                            src: geom.src,
+                            initialStrokes: geom.strokes || []
+                          });
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-[var(--text-inverse)] transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 text-[10px] font-bold"
+                        title="Open in Dedicated Annotation Canvas (Draw, Mark & Save)"
+                      >
+                        <Edit3 size={11} />
+                        <span className="hidden sm:inline">Annotate</span>
+                      </button>
+
+                      {/* Minimize Button (-) */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCardMinimize(obj.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={`p-1 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center ${
+                          isMinimized ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]' : 'bg-[var(--card-bg)] hover:bg-[var(--accent-primary-soft)]'
+                        }`}
+                        title={isMinimized ? "Restore Image Height" : "Minimize Image (-)"}
+                      >
+                        <Minus size={13} />
+                      </button>
+
+                      {/* Maximize Button (+) */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleCardMaximize(obj.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={`p-1 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center ${
+                          isMaximized ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]' : 'bg-[var(--card-bg)] hover:bg-[var(--accent-primary-soft)]'
+                        }`}
+                        title={isMaximized ? "Restore Normal Size" : "Maximize Image (+)"}
+                      >
+                        <Plus size={13} />
+                      </button>
+
+                      {/* Close Button (X) */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeObject(obj.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="p-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] hover:bg-rose-500/20 text-[var(--text-secondary)] hover:text-rose-400 hover:border-rose-500/40 transition-colors cursor-pointer shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
+                        title="Remove Image (X)"
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
+                  </div>
+                </foreignObject>
+                {!isMinimized && (
+                  <image
+                    href={geom.src}
+                    x={0}
+                    y={headerHeight}
+                    width={imgWidth}
+                    height={imgHeight}
+                    preserveAspectRatio="xMidYMid meet"
+                    className="rounded-b-2xl pointer-events-none"
+                  />
+                )}
+              </g>
+            );
+          } else if (obj.type === 'document') {
+            const geom = JSON.parse(obj.geometry_json);
+            const isMinimized = !!geom.is_minimized;
+            const isMaximized = !!geom.is_maximized;
+
+            const maxViewportWidth = typeof window !== 'undefined' ? Math.max(300, window.innerWidth - 30) : 680;
+            const docWidth = Math.min(geom.w || (isMaximized ? 880 : 580), maxViewportWidth);
+            const headerHeight = 42;
+            const docHeight = isMinimized ? headerHeight : (geom.h || (isMaximized ? 620 : 420));
+
+            const isPdf = geom.name?.toLowerCase().endsWith('.pdf') || geom.file_type?.includes('pdf');
+            const isPpt = geom.name?.toLowerCase().includes('.ppt') || geom.file_type?.includes('presentation');
+            const isWord = geom.name?.toLowerCase().includes('.doc') || geom.file_type?.includes('word');
+
+            const badgeColor = isPdf
+              ? 'bg-rose-500/20 text-rose-400 border-rose-500/40'
+              : isPpt
+              ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+              : isWord
+              ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+              : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
+
+            const badgeLabel = isPdf ? 'PDF' : isPpt ? 'PPT' : isWord ? 'DOCX' : 'DOC';
+
+            return (
+              <g key={obj.id} transform={`translate(${geom.x || 80}, ${geom.y || 60})`}>
+                <rect
+                  width={docWidth}
+                  height={docHeight}
+                  fill="var(--glass-bg)"
+                  rx={isMinimized ? 12 : 18}
+                  stroke="var(--border-subtle)"
+                  strokeWidth={1.5}
+                  className="shadow-2xl"
+                />
+                <foreignObject width={docWidth} height={docHeight} className="p-0">
+                  <div className={`flex flex-col h-full justify-between select-none text-[var(--text-primary)] ${isMinimized ? 'rounded-xl' : 'rounded-2xl'} overflow-hidden`}>
+                    {/* Document Header Bar */}
+                    <div
+                      onPointerDown={(e) => handleCardDragStart(e, obj.id, geom.x || 80, geom.y || 60)}
+                      className="flex items-center justify-between px-3 py-2 bg-[var(--accent-primary-soft)]/90 border-b border-[var(--border-subtle)] cursor-grab active:cursor-grabbing text-xs select-none backdrop-blur-md h-[42px]"
+                      title="Drag header to move document anywhere on canvas"
+                    >
+                      <div className="flex items-center gap-2 truncate max-w-[55%]">
+                        <GripHorizontal size={14} className="opacity-70 shrink-0" />
+                        <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold uppercase border ${badgeColor}`}>
+                          {badgeLabel}
+                        </span>
+                        <span className="font-bold text-xs truncate text-[var(--text-primary)]">
+                          {geom.name || 'Uploaded Document'}
+                        </span>
+                        {geom.strokes && geom.strokes.length > 0 && (
+                          <span className="text-[9px] font-mono text-[var(--accent-primary)] bg-[var(--card-bg)] px-1.5 py-0.5 rounded border border-[var(--border-subtle)] shrink-0">
+                            ✎ {geom.strokes.length}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Window Controls: [Annotate], [-] Minimize, [+] Maximize, [X] Close */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {/* Annotate / Open Full Canvas Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveDocumentModal({
+                              id: obj.id,
+                              name: geom.name || 'Uploaded Document',
+                              fileType: geom.file_type || 'application/pdf',
+                              src: geom.src,
+                              htmlContent: geom.html_content,
+                              textContent: geom.text_content,
+                              initialStrokes: geom.strokes || []
+                            });
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--accent-primary-soft)] text-[var(--accent-primary)] hover:bg-[var(--accent-primary)] hover:text-[var(--text-inverse)] transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 text-[10px] font-bold"
+                          title="Open in Dedicated Annotation Canvas (Draw, Mark & Save)"
+                        >
+                          <Edit3 size={11} />
+                          <span className="hidden sm:inline">Annotate</span>
+                        </button>
+
+                        {/* Minimize Button (-) */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCardMinimize(obj.id);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className={`p-1 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center ${
+                            isMinimized ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]' : 'bg-[var(--card-bg)] hover:bg-[var(--accent-primary-soft)]'
+                          }`}
+                          title={isMinimized ? "Restore Document Height" : "Minimize Document (-)"}
+                        >
+                          <Minus size={13} />
+                        </button>
+
+                        {/* Maximize Button (+) */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCardMaximize(obj.id);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className={`p-1 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all cursor-pointer shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center ${
+                            isMaximized ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]' : 'bg-[var(--card-bg)] hover:bg-[var(--accent-primary-soft)]'
+                          }`}
+                          title={isMaximized ? "Restore Normal Size" : "Maximize Document (+)"}
+                        >
+                          <Plus size={13} />
+                        </button>
+
+                        {/* Close Button (X) */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeObject(obj.id);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className="p-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--card-bg)] hover:bg-rose-500/20 text-[var(--text-secondary)] hover:text-rose-400 hover:border-rose-500/40 transition-colors cursor-pointer shadow-sm hover:scale-105 active:scale-95 flex items-center justify-center"
+                          title="Remove Document (X)"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Document Content (Hidden if minimized) */}
+                    {!isMinimized && (
+                      <div className="flex-1 p-4 overflow-y-auto space-y-2.5 text-xs bg-[var(--card-bg)]/75">
+                        {geom.html_content ? (
+                          <div
+                            className="w-full h-full text-xs text-[var(--text-primary)] leading-relaxed select-text word-doc-container"
+                            dangerouslySetInnerHTML={{ __html: geom.html_content }}
+                          />
+                        ) : geom.src && isPdf ? (
+                          <iframe
+                            src={`${geom.src}#toolbar=0&navpanes=0&view=FitH`}
+                            className="w-full h-full min-h-[300px] rounded-xl border border-[var(--border-subtle)] pointer-events-auto bg-white dark:bg-[#00272B]"
+                            title={geom.name}
+                          />
+                        ) : geom.text_content ? (
+                          <pre className="font-sans whitespace-pre-wrap leading-relaxed text-xs text-[var(--text-primary)]">
+                            {geom.text_content}
+                          </pre>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center p-6 text-center space-y-2 border border-dashed border-[var(--border-subtle)] rounded-xl">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border font-bold text-sm ${badgeColor}`}>
+                              {badgeLabel}
+                            </div>
+                            <h4 className="font-bold text-sm text-[var(--text-primary)]">{geom.name}</h4>
+                            <p className="text-[10px] text-[var(--text-secondary)]">
+                              Document loaded on Canvas. You can mark, highlight, and write notes directly over this document.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </foreignObject>
+              </g>
+            );
           }
           return null;
         })}
@@ -1504,6 +2148,7 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
         isOpen={isSaveModalOpen}
         onClose={() => setIsSaveModalOpen(false)}
         onSave={handleConfirmSaveModal}
+        onExportImage={handleExportCanvasWithMarkings}
         defaultTitle={selectedTopic ? `${selectedTopic.name} Note` : `Whiteboard Session #${savedCanvasHistory.length + 1}`}
         objectCount={objects.length}
       />
@@ -1512,6 +2157,44 @@ export const DrawingCanvas: React.FC<DrawingCanvasProps> = ({ conversationId = n
       <SecondBrainGraphModal
         isOpen={isGraphicalViewOpen}
         onClose={() => setIsGraphicalViewOpen(false)}
+      />
+
+      {/* Dedicated Document Annotation Canvas Modal */}
+      <DocumentCanvasModal
+        isOpen={!!activeDocumentModal}
+        onClose={() => setActiveDocumentModal(null)}
+        documentData={activeDocumentModal}
+        onSaveToMainCanvas={(updatedDocObj) => {
+          setObjects(prev => {
+            const existingIndex = prev.findIndex(o => o.id === updatedDocObj.id);
+            let nextObjects: CanvasObject[];
+            if (existingIndex >= 0) {
+              const existing = prev[existingIndex];
+              try {
+                const existingGeom = JSON.parse(existing.geometry_json);
+                const updatedGeom = JSON.parse(updatedDocObj.geometry_json);
+                updatedDocObj = {
+                  ...updatedDocObj,
+                  geometry_json: JSON.stringify({
+                    ...updatedGeom,
+                    x: existingGeom.x ?? updatedGeom.x,
+                    y: existingGeom.y ?? updatedGeom.y,
+                    w: existingGeom.w ?? updatedGeom.w,
+                    h: existingGeom.h ?? updatedGeom.h,
+                    is_minimized: existingGeom.is_minimized ?? false,
+                    is_maximized: existingGeom.is_maximized ?? false
+                  })
+                };
+              } catch {}
+              nextObjects = [...prev];
+              nextObjects[existingIndex] = updatedDocObj;
+            } else {
+              nextObjects = [...prev, updatedDocObj];
+            }
+            pushToHistory(nextObjects);
+            return nextObjects;
+          });
+        }}
       />
     </div>
   );
